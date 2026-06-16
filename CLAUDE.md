@@ -283,9 +283,10 @@ locally. The project owner's personal admin login (`alumkatrina58@gmail.com`) is
 - Commits: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`).
 - Keep PRs small and focused; describe *what* and *why*.
 - Never commit `api/.env`, `api/vendor/`, `tangaza/node_modules/`, or `tangaza/build/`.
-- This repo (`Tangaza/`) is not yet a single git repo — only `tangaza/` is currently
-  version-controlled (one commit: CRA init). `api/` has no `.git` of its own. Decide and set up
-  the real repo structure (monorepo vs. two repos) before the first real feature PR.
+- **Single monorepo** as of 2026-06-16: one git repo at the `Tangaza/` root (both `api/` and
+  `tangaza/` are plain folders within it, each keeping its own stack-specific `.gitignore`), pushed
+  to `github.com/katrina7890/Tangazaa` on `main`. The root also has a `.gitignore` excluding
+  `.claude/` (local Claude Code settings, not project config).
 
 ---
 
