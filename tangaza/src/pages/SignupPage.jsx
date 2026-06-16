@@ -1,0 +1,162 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import GoogleIcon from '../components/GoogleIcon';
+import { useAuth } from '../context/AuthContext';
+import { dashboardPathForRole } from '../utils/roles';
+import { AuthField, LockIcon, MailIcon } from './LoginPage';
+
+const ROLES = [
+  { value: 'customer', label: 'Booking a Billboard' },
+  { value: 'owner', label: 'Listing a Billboard' },
+];
+
+export default function SignupPage() {
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  const [role, setRole] = useState('customer');
+  const [companyName, setCompanyName] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [notice, setNotice] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setNotice('');
+    setSubmitting(true);
+    try {
+      const registeredUser = await register({
+        company_name: companyName,
+        name: contactPerson,
+        email,
+        password,
+        role,
+      });
+      navigate(dashboardPathForRole(registeredUser.role));
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center px-4 pb-8 pt-28">
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-lg">
+        <h1 className="text-center font-display text-2xl text-slate-900">Create Account</h1>
+        <p className="mt-2 text-center text-slate-600">
+          {role === 'owner'
+            ? 'Register your company to start listing billboards'
+            : 'Register your company to start booking billboards'}
+        </p>
+
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-cream p-1">
+          {ROLES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setRole(option.value)}
+              className={`rounded-xl px-3 py-2 text-sm font-semibold ${
+                role === option.value ? 'bg-violet-600 text-white' : 'text-slate-600'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setNotice("Google sign-up isn't connected yet — the API is still being wired up.")}
+          className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-sand px-4 py-3 font-medium text-slate-800 hover:bg-sand-dark"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </button>
+
+        <div className="my-5 flex items-center gap-3">
+          <span className="h-px flex-1 bg-slate-300" />
+          <span className="text-sm text-slate-500">or</span>
+          <span className="h-px flex-1 bg-slate-300" />
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <AuthField
+            icon={<BuildingIcon />}
+            type="text"
+            placeholder="Company name"
+            value={companyName}
+            onChange={setCompanyName}
+          />
+          <AuthField
+            icon={<PersonIcon />}
+            type="text"
+            placeholder="Contact person"
+            value={contactPerson}
+            onChange={setContactPerson}
+          />
+          <AuthField
+            icon={<MailIcon />}
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={setEmail}
+          />
+          <AuthField
+            icon={<LockIcon />}
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={setPassword}
+          />
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-violet-600 px-4 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-60"
+          >
+            {submitting ? 'CREATING ACCOUNT…' : 'CREATE ACCOUNT'}
+            <ArrowIcon />
+          </button>
+        </form>
+
+        {notice && <p className="mt-4 text-center text-sm text-amber-600">{notice}</p>}
+
+        <p className="mt-6 text-center text-slate-600">
+          Already have an account?{' '}
+          <Link to="/login" className="font-semibold text-violet-700 hover:underline">
+            Sign In
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BuildingIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+      <rect x="4" y="2" width="16" height="20" rx="1" />
+      <path d="M9 22v-4h6v4M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1" />
+    </svg>
+  );
+}
+
+function PersonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
