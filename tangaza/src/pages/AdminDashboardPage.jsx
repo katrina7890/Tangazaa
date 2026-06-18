@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchAdminLoginAttempts, fetchAdminStats } from '../api';
+import DashboardHero from '../components/DashboardHero';
+import StatsChart from '../components/StatsChart';
 import BillboardsPanel from '../components/admin/BillboardsPanel';
 import BookingsPanel from '../components/admin/BookingsPanel';
 import UsersPanel from '../components/admin/UsersPanel';
@@ -28,62 +30,86 @@ export default function AdminDashboardPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-12 pt-28">
-      <h1 className="font-display text-2xl text-slate-900">Admin Dashboard</h1>
+    <div className="min-h-screen bg-cream">
+      <DashboardHero eyebrow="Platform control" title="Admin Dashboard" />
 
-      <div className="mt-6 flex gap-2 border-b border-sand">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition ${
-              tab === t.key
-                ? 'border-violet-600 text-violet-700'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-6">
-        {tab === 'overview' &&
-          (loading || !stats ? (
-            <p className="text-slate-600">Loading…</p>
-          ) : (
-            <OverviewTab stats={stats} attempts={attempts} />
+      <div className="mx-auto max-w-6xl px-4 pb-16">
+        <div className="relative z-10 -mt-8 flex flex-wrap gap-2 rounded-2xl border border-sand bg-white p-2 shadow-sm">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                tab === t.key
+                  ? 'bg-forest text-cream shadow-sm'
+                  : 'text-stone-500 hover:bg-cream hover:text-forest'
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
-        {tab === 'users' && <UsersPanel />}
-        {tab === 'billboards' && <BillboardsPanel />}
-        {tab === 'bookings' && <BookingsPanel />}
+        </div>
+
+        <div className="mt-8">
+          {tab === 'overview' &&
+            (loading || !stats ? (
+              <p className="text-stone-600">Loading…</p>
+            ) : (
+              <OverviewTab stats={stats} attempts={attempts} />
+            ))}
+          {tab === 'users' && <UsersPanel />}
+          {tab === 'billboards' && <BillboardsPanel />}
+          {tab === 'bookings' && <BookingsPanel />}
+        </div>
       </div>
     </div>
   );
 }
 
 function OverviewTab({ stats, attempts }) {
+  const chartData = [
+    { label: 'Companies', value: stats.companies, color: '#1f3d31' },
+    { label: 'Billboards', value: stats.billboards_active, color: '#3f8f6b' },
+    { label: 'Customers', value: stats.customers, color: '#d6a23e' },
+    { label: 'Bookings', value: stats.bookings_total, color: '#c0703f' },
+  ];
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Billboard Companies" value={stats.companies} />
-        <StatCard
-          label="Active Billboards"
-          value={stats.billboards_active}
-          sub={`${stats.billboards_total} total`}
-        />
-        <StatCard label="Customers" value={stats.customers} />
-        <StatCard
-          label="Bookings"
-          value={stats.bookings_total}
-          sub={`${formatKES(stats.revenue_confirmed)} revenue`}
-        />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <StatsChart title="Platform at a glance" data={chartData} />
+        </div>
+
+        {/* Revenue highlight — strong forest/gold colour block */}
+        <div className="flex flex-col justify-between rounded-3xl bg-gradient-to-br from-forest to-forest-soft p-6 text-cream shadow-sm">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-soft">Confirmed revenue</p>
+            <p className="mt-2 font-serif text-3xl font-semibold text-gold">{formatKES(stats.revenue_confirmed)}</p>
+            <p className="mt-1 text-sm text-cream/70">from {stats.bookings_total} bookings</p>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-cream/15 pt-4 text-sm">
+            <div>
+              <p className="text-cream/60">Active boards</p>
+              <p className="font-semibold text-cream">
+                {stats.billboards_active}
+                <span className="text-cream/50"> / {stats.billboards_total}</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-cream/60">Flagged logins</p>
+              <p className={`font-semibold ${stats.suspicious_logins_count > 0 ? 'text-red-300' : 'text-cream'}`}>
+                {stats.suspicious_logins_count}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <div>
-          <h2 className="font-display text-lg text-slate-900">Recent Signups (7 days)</h2>
+          <SectionHeading>Recent Signups (7 days)</SectionHeading>
           {stats.recent_signups.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">No new signups in the last 7 days.</p>
           ) : (
@@ -101,14 +127,17 @@ function OverviewTab({ stats, attempts }) {
         </div>
 
         <div>
-          <h2 className="flex items-center gap-2 font-display text-lg text-slate-900">
+          <SectionHeading
+            badge={
+              stats.suspicious_logins_count > 0 ? (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+                  {stats.suspicious_logins_count} flagged (7d)
+                </span>
+              ) : null
+            }
+          >
             Login Activity
-            {stats.suspicious_logins_count > 0 && (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
-                {stats.suspicious_logins_count} flagged (7d)
-              </span>
-            )}
-          </h2>
+          </SectionHeading>
           {attempts.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">No login activity yet.</p>
           ) : (
@@ -148,12 +177,12 @@ function OverviewTab({ stats, attempts }) {
   );
 }
 
-function StatCard({ label, value, sub }) {
+function SectionHeading({ children, badge }) {
   return (
-    <div className="rounded-2xl border border-sand bg-white p-4 shadow-sm">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
-    </div>
+    <h2 className="flex items-center gap-2 font-serif text-lg font-semibold text-forest">
+      <span className="h-5 w-1 rounded-full bg-gold" />
+      {children}
+      {badge}
+    </h2>
   );
 }

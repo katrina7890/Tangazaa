@@ -25,7 +25,7 @@ export default function BookingsModal({ billboard, bookings, loading, onClose })
                 <p className="text-sm text-slate-600">
                   {booking.start_date} → {booking.end_date}
                 </p>
-                <p className="mt-1 text-sm font-medium text-violet-700">{formatKES(booking.total_price)}</p>
+                <p className="mt-1 text-sm font-medium text-gold-dark">{formatKES(booking.total_price)}</p>
                 <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">
                   {booking.status}
                 </span>

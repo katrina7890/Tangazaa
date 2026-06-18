@@ -41,7 +41,7 @@ export default function BookingsPanel() {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Search by billboard or customer…"
-        className="w-full max-w-md rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none"
+        className="w-full max-w-md rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-gold focus:outline-none"
       />
 
       {loading ? (
@@ -61,7 +61,7 @@ export default function BookingsPanel() {
                   {booking.customer?.company_name || booking.customer?.name} · {booking.start_date} →{' '}
                   {booking.end_date}
                 </p>
-                <p className="mt-1 text-sm font-medium text-violet-700">{formatKES(booking.total_price)}</p>
+                <p className="mt-1 text-sm font-medium text-gold-dark">{formatKES(booking.total_price)}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span

@@ -159,7 +159,7 @@ export default function BillboardForm({ billboard, onSaved, onCancel }) {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-full bg-violet-600 px-5 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-60"
+          className="rounded-full bg-gold px-5 py-2 text-sm font-bold text-forest hover:bg-gold-soft disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -176,7 +176,7 @@ export default function BillboardForm({ billboard, onSaved, onCancel }) {
 }
 
 const inputClass =
-  'mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500';
+  'mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold';
 
 function Field({ label, children }) {
   return (

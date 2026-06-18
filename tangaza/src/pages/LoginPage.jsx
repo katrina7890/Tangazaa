@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import AuthLayout from '../components/AuthLayout';
 import GoogleIcon from '../components/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { dashboardPathForRole } from '../utils/roles';
@@ -27,62 +28,60 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 pb-8 pt-28">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-lg">
-        <h1 className="text-center font-display text-2xl text-slate-900">Welcome Back</h1>
-        <p className="mt-2 text-center text-slate-600">Sign in to manage your bookings</p>
+    <AuthLayout image="/billboard-auth.jpg">
+      <h1 className="text-center font-serif text-3xl font-semibold text-forest">Welcome back</h1>
+      <p className="mt-2 text-center text-stone-600">Sign in to manage your campaigns</p>
+
+      <button
+        type="button"
+        onClick={() => setNotice("Google sign-in isn't connected yet — the API is still being wired up.")}
+        className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-sand px-4 py-3 font-medium text-stone-800 transition hover:bg-sand-dark"
+      >
+        <GoogleIcon />
+        Continue with Google
+      </button>
+
+      <div className="my-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-sand-dark" />
+        <span className="text-sm text-stone-500">or</span>
+        <span className="h-px flex-1 bg-sand-dark" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthField
+          icon={<MailIcon />}
+          type="email"
+          placeholder="Email address"
+          value={email}
+          onChange={setEmail}
+        />
+        <AuthField
+          icon={<LockIcon />}
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={setPassword}
+        />
 
         <button
-          type="button"
-          onClick={() => setNotice("Google sign-in isn't connected yet — the API is still being wired up.")}
-          className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-sand px-4 py-3 font-medium text-slate-800 hover:bg-sand-dark"
+          type="submit"
+          disabled={submitting}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft disabled:opacity-60"
         >
-          <GoogleIcon />
-          Continue with Google
+          {submitting ? 'Signing in…' : 'Sign in'}
+          <ArrowIcon />
         </button>
+      </form>
 
-        <div className="my-5 flex items-center gap-3">
-          <span className="h-px flex-1 bg-slate-300" />
-          <span className="text-sm text-slate-500">or</span>
-          <span className="h-px flex-1 bg-slate-300" />
-        </div>
+      {notice && <p className="mt-4 text-center text-sm text-amber-700">{notice}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <AuthField
-            icon={<MailIcon />}
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={setEmail}
-          />
-          <AuthField
-            icon={<LockIcon />}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={setPassword}
-          />
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-violet-600 px-4 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-60"
-          >
-            {submitting ? 'SIGNING IN…' : 'SIGN IN'}
-            <ArrowIcon />
-          </button>
-        </form>
-
-        {notice && <p className="mt-4 text-center text-sm text-amber-600">{notice}</p>}
-
-        <p className="mt-6 text-center text-slate-600">
-          Don&apos;t have an account?{' '}
-          <Link to="/signup" className="font-semibold text-violet-700 hover:underline">
-            Sign Up
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="mt-6 text-center text-stone-600">
+        Don&apos;t have an account?{' '}
+        <Link to="/signup" className="font-semibold text-gold-dark hover:underline">
+          Sign Up
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }
 
@@ -95,7 +94,8 @@ export function AuthField({ icon, type, placeholder, value, onChange }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-2xl bg-sand py-3 pl-11 pr-4 text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        aria-label={placeholder}
+        className="w-full rounded-2xl bg-sand py-3 pl-11 pr-4 text-stone-800 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-gold"
       />
     </div>
   );

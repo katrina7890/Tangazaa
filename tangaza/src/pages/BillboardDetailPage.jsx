@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import BillboardImage from '../components/BillboardImage';
 import { createBooking, fetchBillboard } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { billboardTypeLabel } from '../data/billboardTypes';
@@ -39,8 +40,8 @@ export default function BillboardDetailPage() {
   if (!billboard) {
     return (
       <div className="mx-auto max-w-3xl px-4 pb-8 pt-28">
-        <p className="text-slate-700">Billboard not found.</p>
-        <Link to="/map" className="mt-2 inline-block text-violet-700 hover:underline">
+        <p className="text-stone-700">Billboard not found.</p>
+        <Link to="/map" className="mt-2 inline-block text-gold-dark hover:underline">
           Back to map
         </Link>
       </div>
@@ -75,16 +76,23 @@ export default function BillboardDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-8 pt-28">
-      <Link to="/map" className="text-sm text-violet-700 hover:underline">
+      <Link to="/map" className="text-sm text-gold-dark hover:underline">
         ← Back to map
       </Link>
 
-      <div className="mt-4 flex h-48 items-center justify-center rounded-3xl bg-violet-600 text-5xl font-bold text-white">
-        {billboard.title.charAt(0)}
+      <div className="relative mt-4 h-64 overflow-hidden rounded-3xl border border-sand shadow-sm">
+        <BillboardImage
+          id={billboard.id}
+          title={billboard.title}
+          className="h-full w-full object-cover"
+        />
+        <span className="absolute left-4 top-4 rounded-full bg-forest/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cream backdrop-blur">
+          {billboardTypeLabel(billboard.type)}
+        </span>
       </div>
 
-      <h1 className="mt-6 font-display text-2xl text-slate-900">{billboard.title}</h1>
-      <p className="text-slate-500">{billboard.location}</p>
+      <h1 className="mt-6 font-serif text-3xl font-semibold text-forest">{billboard.title}</h1>
+      <p className="text-stone-500">{billboard.location}</p>
 
       <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
@@ -123,7 +131,7 @@ export default function BillboardDetailPage() {
                 setStartDate(event.target.value);
                 setBookingSuccess(false);
               }}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </div>
           <div>
@@ -139,7 +147,7 @@ export default function BillboardDetailPage() {
                 setEndDate(event.target.value);
                 setBookingSuccess(false);
               }}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </div>
         </div>
@@ -171,7 +179,7 @@ export default function BillboardDetailPage() {
                     type="button"
                     onClick={handleConfirmBooking}
                     disabled={booking}
-                    className="mt-3 rounded-full bg-violet-600 px-5 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-60"
+                    className="mt-3 rounded-full bg-gold px-5 py-2 text-sm font-bold text-forest transition hover:bg-gold-soft disabled:opacity-60"
                   >
                     {booking ? 'Booking…' : 'Confirm Booking'}
                   </button>
@@ -179,7 +187,7 @@ export default function BillboardDetailPage() {
                   <p className="mt-3 text-sm text-slate-600">Only customer accounts can book billboards.</p>
                 ) : (
                   <p className="mt-3 text-sm text-slate-600">
-                    <Link to="/login" className="font-semibold text-violet-700 underline">
+                    <Link to="/login" className="font-semibold text-gold-dark underline">
                       Sign in
                     </Link>{' '}
                     as a customer to book this billboard.

@@ -54,7 +54,7 @@ export default function BillboardsPanel() {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Search by title or location…"
-        className="w-full max-w-md rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none"
+        className="w-full max-w-md rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-gold focus:outline-none"
       />
 
       {loading ? (
@@ -81,7 +81,7 @@ export default function BillboardsPanel() {
               <p className="mt-2 text-sm text-slate-600">
                 {billboardTypeLabel(billboard.type)} · {billboard.size}
               </p>
-              <p className="mt-1 font-medium text-violet-700">{formatKES(billboard.pricePerWeek)}/week</p>
+              <p className="mt-1 font-medium text-gold-dark">{formatKES(billboard.pricePerWeek)}/week</p>
               {billboard.owner && (
                 <p className="mt-1 text-sm text-slate-500">
                   Owned by {billboard.owner.company_name || billboard.owner.name}
@@ -91,7 +91,7 @@ export default function BillboardsPanel() {
                 type="button"
                 onClick={() => handleToggleActive(billboard)}
                 disabled={busyId === billboard.id}
-                className="mt-3 text-sm font-semibold text-violet-700 hover:underline disabled:opacity-50"
+                className="mt-3 text-sm font-semibold text-gold-dark hover:underline disabled:opacity-50"
               >
                 {billboard.isActive ? 'Deactivate' : 'Activate'}
               </button>

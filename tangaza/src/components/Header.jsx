@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { dashboardPathForRole } from '../utils/roles';
 
 export default function Header() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
-  // The landing hero is dark forest green, so the wordmark needs to be light there.
-  const onLanding = useLocation().pathname === '/';
+  // These routes have a dark forest backdrop at the top, so the wordmark needs to be light there.
+  const darkBackdropRoutes = ['/', '/login', '/signup', '/dashboard', '/owner', '/admin'];
+  const onDarkBackdrop = darkBackdropRoutes.includes(useLocation().pathname);
 
   // Fade a solid forest backdrop in once the user scrolls past the top, so the
   // transparent header stays readable over the cream sections further down.
@@ -18,8 +20,8 @@ export default function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Light wordmark whenever the backdrop behind it is dark (scrolled header or the landing hero).
-  const lightWordmark = scrolled || onLanding;
+  // Light wordmark whenever the backdrop behind it is dark (scrolled header or a dark-backdrop route).
+  const lightWordmark = scrolled || onDarkBackdrop;
 
   async function handleLogout() {
     await logout();
@@ -43,14 +45,12 @@ export default function Header() {
 
       {!loading && user ? (
         <div className="flex items-center gap-3">
-          {(user.role === 'owner' || user.role === 'admin') && (
-            <Link
-              to={user.role === 'admin' ? '/admin' : '/owner'}
-              className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-800 shadow hover:bg-slate-50"
-            >
-              DASHBOARD
-            </Link>
-          )}
+          <Link
+            to={dashboardPathForRole(user.role)}
+            className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-800 shadow hover:bg-slate-50"
+          >
+            DASHBOARD
+          </Link>
           <div className="hidden text-right sm:block">
             <p className={`text-sm font-semibold ${lightWordmark ? 'text-cream' : 'text-slate-900'}`}>
               {user.name}

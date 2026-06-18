@@ -29,11 +29,11 @@ export default function FilterPanel({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search locations..."
-          className="w-full rounded-full bg-sand py-3 pl-11 pr-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          className="w-full rounded-full bg-sand py-3 pl-11 pr-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-gold"
         />
       </div>
 
-      <span className="mt-4 inline-block rounded-full bg-violet-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+      <span className="mt-4 inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wide text-forest">
         Live Inventory
       </span>
       <p className="mt-2 text-2xl font-bold text-slate-900">
@@ -52,7 +52,7 @@ export default function FilterPanel({
               type="date"
               value={startDate}
               onChange={(event) => onStartDateChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </div>
           <div>
@@ -65,7 +65,7 @@ export default function FilterPanel({
               value={endDate}
               min={startDate || undefined}
               onChange={(event) => onEndDateChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-gold"
             />
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function FilterPanel({
       <select
         value={location}
         onChange={(event) => onLocationChange(event.target.value)}
-        className="w-full rounded-2xl bg-sand px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        className="w-full rounded-2xl bg-sand px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-gold"
       >
         <option value="All locations">All locations</option>
         {locations.map((loc) => (
@@ -106,7 +106,7 @@ export default function FilterPanel({
               onClick={() => onToggleType(type.value)}
               className={`rounded-xl px-3 py-2 text-xs font-medium ${
                 selected
-                  ? 'bg-violet-600 text-white'
+                  ? 'bg-gold text-forest'
                   : 'bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -124,7 +124,7 @@ export default function FilterPanel({
         step={1000}
         value={maxWeeklyBudget}
         onChange={(event) => onMaxWeeklyBudgetChange(Number(event.target.value))}
-        className="w-full accent-violet-600"
+        className="w-full accent-gold"
       />
       <p className="mt-1 text-xs text-slate-600">
         Up to {formatKES(maxWeeklyBudget)}/week

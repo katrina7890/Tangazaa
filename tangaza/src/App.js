@@ -4,6 +4,7 @@ import RequireRole from './components/RequireRole';
 import { AuthProvider } from './context/AuthContext';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import BillboardDetailPage from './pages/BillboardDetailPage';
+import CustomerDashboardPage from './pages/CustomerDashboardPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MapBrowsePage from './pages/MapBrowsePage';
@@ -23,6 +24,14 @@ function App() {
             <Route path="/billboards/:id" element={<BillboardDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <RequireRole roles={['customer']}>
+                  <CustomerDashboardPage />
+                </RequireRole>
+              }
+            />
             <Route
               path="/owner"
               element={

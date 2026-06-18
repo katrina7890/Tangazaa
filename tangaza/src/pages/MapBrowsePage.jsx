@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import FilterPanel from '../components/map/FilterPanel';
 import MapControls from '../components/map/MapControls';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
+import BillboardImage from '../components/BillboardImage';
 import { fetchBillboards } from '../api';
-import { BILLBOARD_TYPES } from '../data/billboardTypes';
+import { BILLBOARD_TYPES, billboardTypeLabel } from '../data/billboardTypes';
 import { MIN_CAMPAIGN_DAYS, daysBetween, formatKES, isAvailable } from '../utils/availability';
 
 export default function MapBrowsePage() {
@@ -89,29 +90,70 @@ export default function MapBrowsePage() {
         className="h-full w-full"
       >
         <TileLayer url={TILE_THEMES[theme].url} attribution={TILE_THEMES[theme].attribution} />
-        {filteredBillboards.map((billboard) => (
-          <CircleMarker
-            key={billboard.id}
-            center={[billboard.lat, billboard.lng]}
-            radius={9}
-            pathOptions={{ color: '#fff', weight: 2, fillColor: '#7c3aed', fillOpacity: 1 }}
-          >
-            <Popup>
-              <p className="font-semibold text-slate-900">{billboard.title}</p>
-              <p className="text-sm text-slate-600">{billboard.location}</p>
-              <p className="mt-1 text-sm font-medium text-violet-700">
-                {formatKES(billboard.pricePerWeek)}/week
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate(`/billboards/${billboard.id}`)}
-                className="mt-2 text-sm font-semibold text-violet-700 underline"
-              >
-                View details
-              </button>
-            </Popup>
-          </CircleMarker>
-        ))}
+        {filteredBillboards.map((billboard) => {
+          const showAvailability = Boolean(startDate && endDate && meetsMinimum);
+          const free = showAvailability && isAvailable(billboard.bookedRanges, startDate, endDate);
+
+          return (
+            <CircleMarker
+              key={billboard.id}
+              center={[billboard.lat, billboard.lng]}
+              radius={9}
+              pathOptions={{ color: '#fff', weight: 2, fillColor: '#d6a23e', fillOpacity: 1 }}
+              eventHandlers={{
+                // Zoom into the spot the customer clicked, then the popup anchors there.
+                click: () => mapRef.current?.flyTo([billboard.lat, billboard.lng], 15, { duration: 0.8 }),
+              }}
+            >
+              <Popup>
+                <div className="w-56">
+                  <BillboardImage
+                    id={billboard.id}
+                    title={billboard.title}
+                    className="h-28 w-full rounded-lg object-cover"
+                  />
+                  <p className="mt-2 font-semibold text-forest">{billboard.title}</p>
+                  <p className="text-xs text-stone-500">{billboard.location}</p>
+
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-gold-dark">
+                      {billboardTypeLabel(billboard.type)}
+                    </span>
+                    <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-stone-600">
+                      {billboard.size}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-sm font-bold text-gold-dark">
+                      {formatKES(billboard.pricePerWeek)}
+                      <span className="text-xs font-normal text-stone-500">/week</span>
+                    </span>
+                    <span className="text-xs text-stone-500">{formatKES(billboard.pricePerDay)}/day</span>
+                  </div>
+
+                  {showAvailability && (
+                    <span
+                      className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        free ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {free ? 'Available for your dates' : 'Booked for your dates'}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/billboards/${billboard.id}`)}
+                    className="mt-3 w-full rounded-full bg-gold px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft"
+                  >
+                    View details &amp; book
+                  </button>
+                </div>
+              </Popup>
+            </CircleMarker>
+          );
+        })}
       </MapContainer>
 
       <MapControls

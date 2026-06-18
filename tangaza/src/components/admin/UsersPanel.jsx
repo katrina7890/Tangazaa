@@ -43,12 +43,12 @@ export default function UsersPanel() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search by name, email or company…"
-          className="flex-1 min-w-[200px] rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none"
+          className="flex-1 min-w-[200px] rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-gold focus:outline-none"
         />
         <select
           value={role}
           onChange={(event) => setRole(event.target.value)}
-          className="rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 focus:border-violet-500 focus:outline-none"
+          className="rounded-full border border-sand bg-white px-4 py-2 text-sm text-slate-900 focus:border-gold focus:outline-none"
         >
           <option value="">All roles</option>
           <option value="customer">Customers</option>
@@ -87,7 +87,7 @@ export default function UsersPanel() {
                     type="button"
                     onClick={() => handleToggle(user)}
                     disabled={busyId === user.id}
-                    className="text-sm font-semibold text-violet-700 hover:underline disabled:opacity-50"
+                    className="text-sm font-semibold text-gold-dark hover:underline disabled:opacity-50"
                   >
                     {user.isSuspended ? 'Reactivate' : 'Suspend'}
                   </button>

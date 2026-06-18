@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import AuthLayout from '../components/AuthLayout';
 import GoogleIcon from '../components/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { dashboardPathForRole } from '../utils/roles';
@@ -43,95 +44,93 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 pb-8 pt-28">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-lg">
-        <h1 className="text-center font-display text-2xl text-slate-900">Create Account</h1>
-        <p className="mt-2 text-center text-slate-600">
-          {role === 'owner'
-            ? 'Register your company to start listing billboards'
-            : 'Register your company to start booking billboards'}
-        </p>
+    <AuthLayout image="/billboard-mockup.jpg">
+      <h1 className="text-center font-serif text-3xl font-semibold text-forest">Create account</h1>
+      <p className="mt-2 text-center text-stone-600">
+        {role === 'owner'
+          ? 'Register your company to start listing billboards'
+          : 'Register your company to start booking billboards'}
+      </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-cream p-1">
-          {ROLES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setRole(option.value)}
-              className={`rounded-xl px-3 py-2 text-sm font-semibold ${
-                role === option.value ? 'bg-violet-600 text-white' : 'text-slate-600'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-sand p-1">
+        {ROLES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setRole(option.value)}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              role === option.value ? 'bg-gold text-forest shadow-sm' : 'text-stone-600 hover:text-forest'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setNotice("Google sign-up isn't connected yet — the API is still being wired up.")}
+        className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-sand px-4 py-3 font-medium text-stone-800 transition hover:bg-sand-dark"
+      >
+        <GoogleIcon />
+        Continue with Google
+      </button>
+
+      <div className="my-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-sand-dark" />
+        <span className="text-sm text-stone-500">or</span>
+        <span className="h-px flex-1 bg-sand-dark" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthField
+          icon={<BuildingIcon />}
+          type="text"
+          placeholder="Company name"
+          value={companyName}
+          onChange={setCompanyName}
+        />
+        <AuthField
+          icon={<PersonIcon />}
+          type="text"
+          placeholder="Contact person"
+          value={contactPerson}
+          onChange={setContactPerson}
+        />
+        <AuthField
+          icon={<MailIcon />}
+          type="email"
+          placeholder="Email address"
+          value={email}
+          onChange={setEmail}
+        />
+        <AuthField
+          icon={<LockIcon />}
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={setPassword}
+        />
 
         <button
-          type="button"
-          onClick={() => setNotice("Google sign-up isn't connected yet — the API is still being wired up.")}
-          className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-sand px-4 py-3 font-medium text-slate-800 hover:bg-sand-dark"
+          type="submit"
+          disabled={submitting}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft disabled:opacity-60"
         >
-          <GoogleIcon />
-          Continue with Google
+          {submitting ? 'Creating account…' : 'Create account'}
+          <ArrowIcon />
         </button>
+      </form>
 
-        <div className="my-5 flex items-center gap-3">
-          <span className="h-px flex-1 bg-slate-300" />
-          <span className="text-sm text-slate-500">or</span>
-          <span className="h-px flex-1 bg-slate-300" />
-        </div>
+      {notice && <p className="mt-4 text-center text-sm text-amber-700">{notice}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <AuthField
-            icon={<BuildingIcon />}
-            type="text"
-            placeholder="Company name"
-            value={companyName}
-            onChange={setCompanyName}
-          />
-          <AuthField
-            icon={<PersonIcon />}
-            type="text"
-            placeholder="Contact person"
-            value={contactPerson}
-            onChange={setContactPerson}
-          />
-          <AuthField
-            icon={<MailIcon />}
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={setEmail}
-          />
-          <AuthField
-            icon={<LockIcon />}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={setPassword}
-          />
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-violet-600 px-4 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-60"
-          >
-            {submitting ? 'CREATING ACCOUNT…' : 'CREATE ACCOUNT'}
-            <ArrowIcon />
-          </button>
-        </form>
-
-        {notice && <p className="mt-4 text-center text-sm text-amber-600">{notice}</p>}
-
-        <p className="mt-6 text-center text-slate-600">
-          Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-violet-700 hover:underline">
-            Sign In
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="mt-6 text-center text-stone-600">
+        Already have an account?{' '}
+        <Link to="/login" className="font-semibold text-gold-dark hover:underline">
+          Sign In
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }
 

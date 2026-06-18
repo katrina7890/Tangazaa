@@ -136,9 +136,34 @@ export async function createBooking(payload) {
   return data;
 }
 
+function mapBooking(booking) {
+  return {
+    id: booking.id,
+    billboard: {
+      id: booking.billboard.id,
+      title: booking.billboard.title,
+      location: booking.billboard.location,
+      lat: booking.billboard.lat,
+      lng: booking.billboard.lng,
+      type: booking.billboard.type,
+      pricePerWeek: booking.billboard.price_per_week,
+    },
+    startDate: booking.start_date,
+    endDate: booking.end_date,
+    totalPrice: booking.total_price,
+    status: booking.status,
+    createdAt: booking.created_at,
+  };
+}
+
 export async function fetchMyBookings() {
   const { data } = await apiFetch('/api/my/bookings');
-  return data;
+  return data.map(mapBooking);
+}
+
+export async function cancelMyBooking(id) {
+  const { data } = await apiFetch(`/api/bookings/${id}/cancel`, { method: 'PATCH' });
+  return mapBooking(data);
 }
 
 export async function fetchAdminStats() {
