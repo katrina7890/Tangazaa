@@ -15,9 +15,10 @@ current — it's the single source of truth for how we build this app.
   registers a company), `admin` (platform staff — not self-registrable, seed/tinker only). Stored
   as `App\Enums\UserRole` on the backend; role is chosen via a toggle on the signup form.
 - **Billboards and bookings are real backend data** (not mock) as of 2026-06-16 — `App\Models\Billboard`
-  (owned by an `owner`) and `App\Models\Booking` (made by a `customer`). Owners get `/owner`,
-  admins get `/admin`; both dashboards are role-gated on the frontend via `RequireRole` and on the
-  backend via the `role:` middleware + `BillboardPolicy`.
+  (owned by an `owner`) and `App\Models\Booking` (made by a `customer`). Customers get `/dashboard`,
+  owners get `/owner`,
+  admins get `/admin`; all three dashboards are role-gated on the frontend via `RequireRole` and on
+  the backend via the `role:` middleware + `BillboardPolicy`.
 - **Architecture:** decoupled — a Laravel API backend and a React SPA frontend, in separate
   folders within this repo. They are deployed independently and talk over HTTP.
 
@@ -111,6 +112,7 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 | GET | `/billboards/{id}/bookings` | owner (own), admin | Bookings on one billboard, with customer info. |
 | POST | `/bookings` | customer only | `CreateBooking` action enforces the 30-day minimum and overlap checks (mirrors the frontend's client-side check in `availability.js` — the backend is authoritative). |
 | GET | `/my/bookings` | customer only | The current customer's bookings. |
+| PATCH | `/bookings/{id}/cancel` | customer (own) | Customer cancels their own booking (`BookingController@cancel`); 403 if it isn't theirs, 422 if already cancelled. Distinct from the admin cancel route below. |
 | GET | `/admin/stats` | admin only | Companies/billboards/customers/bookings counts, revenue, recent signups, suspicious-login count. |
 | GET | `/admin/login-attempts` | admin only | Last 50 login attempts (success/fail, IP, flagged reason). |
 | GET | `/admin/users` | admin only | Paginated, `?search=` (name/email/company) and `?role=customer\|owner\|admin` filters. `AdminUserController@index`. |
@@ -163,6 +165,13 @@ first). Plus 4 random owners and 8 random customers with seeded billboards/booki
 history (including a couple of pre-flagged suspicious logins) so the dashboards aren't empty
 locally. The project owner's personal admin login (`alumkatrina58@gmail.com`) is also seeded here.
 
+`DatabaseSeeder` also calls `NairobiBillboardSeeder` — a curated set of ~20 billboards at real
+Nairobi areas (Westlands, CBD, Mombasa Rd, Thika Rd, Karen, Kilimani, Upper Hill, Gigiri, …) with
+accurate coordinates so the browse map looks populated for demos. It's idempotent (skips sites it
+already created) and can be run on its own: `php artisan db:seed --class=NairobiBillboardSeeder`.
+`BillboardFactory` coordinates are also bounded to the Nairobi metro so random seed data clusters
+around the city rather than scattering across Kenya.
+
 ---
 
 ## Frontend — `tangaza/`
@@ -173,14 +182,21 @@ locally. The project owner's personal admin login (`alumkatrina58@gmail.com`) is
   ejecting. `start`/`build`/`test` all go through `craco`; `eject` is still plain `react-scripts`.
 - **Styling:** Tailwind CSS v4, configured via `@theme` in `src/index.css` (no `tailwind.config.js`
   — that's the v4 way). Custom tokens: `cream`/`sand`/`sand-dark`/`campaign-green` colors and a
-  `font-display` (Archivo Black, loaded via Google Fonts in `public/index.html`) for headings/the
-  "TANGAZAA" wordmark. Built-in Tailwind `violet` palette is the primary accent — matches the
-  Lovable.dev design reference the UI was modeled on.
+  `font-display` (Archivo Black, loaded via Google Fonts in `public/index.html`) for the
+  "TANGAZAA" wordmark. **Palette (as of 2026-06-18):** a forest-green + gold luxury scheme —
+  tokens `forest`/`forest-deep`/`forest-soft` (dark backgrounds), `gold`/`gold-soft`/`gold-dark`
+  (accent; `gold-dark` is the WCAG-safe variant for text on light), plus the existing cream/sand.
+  Headings use the `font-serif` token (**Playfair Display**); body is **Inter** (both loaded in
+  `public/index.html`). This replaced the original Tailwind `violet` accent from the Lovable.dev
+  reference — don't reintroduce `violet-*` classes.
 - **Routing:** `react-router-dom`, **pinned to v6** (not v7 — v7's `package.json` `exports` map
   isn't understood by react-scripts 5's bundled Jest 27 and breaks `npm test` with
   `Cannot find module 'react-router-dom'`, even though it works fine in the browser).
 - **Map:** `react-leaflet` v5 + Leaflet, tiles from CARTO (`light_all`/`dark_all`, free, no API
-  key — see `src/components/map/tileThemes.js`). `MapBrowsePage` is the home route (`/`).
+  key — see `src/components/map/tileThemes.js`). `MapBrowsePage` is at `/map`. Clicking a marker
+  `flyTo`s/zooms into that spot (via the shared `mapRef`) and opens a popup with the billboard's
+  photo (`BillboardImage`) and a spec summary — type, size, weekly/daily price, and an
+  availability badge when campaign dates are selected.
 - **Auth:** `src/context/AuthContext.jsx` (`useAuth()`) wraps the app; checks `GET /api/user` on
   mount to restore the session, exposes `login`/`register`/`logout`. `src/api.js`'s `apiFetch`
   wraps `fetch` with `credentials: 'include'`, JSON headers, and CSRF token handling;
@@ -200,7 +216,11 @@ locally. The project owner's personal admin login (`alumkatrina58@gmail.com`) is
   `bg-violet-950/80` overlay for text contrast — not a hotlinked/guessed external image URL. An
   earlier hand-built SVG illustration (`BillboardScene`) was replaced by this and removed; don't
   recreate it.
-- **Dashboards:** `OwnerDashboardPage` (`/owner`, role `owner`/`admin`) lists/creates/edits/deletes
+- **Dashboards:** `CustomerDashboardPage` (`/dashboard`, role `customer`) shows the customer's
+  bookings — summary stat cards, a Leaflet map of their booked billboards' locations, and per-booking
+  cards (placeholder photo via `components/BillboardImage.jsx`, status badge, dates, total, and a
+  **Cancel booking** action wired to `cancelMyBooking`). `OwnerDashboardPage` (`/owner`, role
+  `owner`/`admin`) lists/creates/edits/deletes
   the current user's billboards (`components/owner/BillboardForm.jsx`) and views bookings per
   billboard (`components/owner/BookingsModal.jsx`). `AdminDashboardPage` (`/admin`, role `admin`)
   is tabbed: **Overview** (stat cards, recent signups, login-attempt/suspicious-login feed — the
@@ -211,7 +231,17 @@ locally. The project owner's personal admin login (`alumkatrina58@gmail.com`) is
   debounce their search input (250ms) before refetching. Both dashboards are gated by
   `components/RequireRole.jsx`, which redirects guests to `/login` and wrong-role users to
   `utils/roles.js#dashboardPathForRole(user.role)` (owner → `/owner`, admin → `/admin`, customer →
-  `/map`) — the same helper sends users to the right place after login/register.
+  `/dashboard`) — the same helper sends users to the right place after login/register, and the
+  `Header` "DASHBOARD" link uses it for every signed-in role.
+- **Auth screens** (`LoginPage`/`SignupPage`) share `components/AuthLayout.jsx` — a full-bleed
+  billboard backdrop (forest overlay + centred cream card). The backdrop loads an optional photo from
+  `/public` (`billboard-auth.jpg` for login, `billboard-mockup.jpg` for signup) and **falls back to
+  the bundled `assets/billboard-hero.jpg`** if those files are absent, so it's never blank. Because
+  these routes have a dark backdrop at the top, `Header` lists `/login` and `/signup` (alongside `/`)
+  as `darkBackdropRoutes` so the wordmark stays light there.
+- **Billboard imagery** uses `components/BillboardImage.jsx` — a deterministic seeded placeholder
+  photo per billboard id with an on-brand forest/gold fallback (used on the customer dashboard and
+  the detail-page hero). Swap for real uploads later; there's no `image` column on `billboards` yet.
 - **`apiFetch` retries once on HTTP 419** (CSRF token mismatch) by refreshing the CSRF cookie and
   re-sending — see Gotchas below for why this is needed for real, not just defensive padding.
 
