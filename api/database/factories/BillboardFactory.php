@@ -25,8 +25,10 @@ class BillboardFactory extends Factory
             'owner_id' => User::factory()->owner(),
             'title' => fake()->streetName().' Billboard',
             'location' => fake()->city(),
-            'lat' => fake()->latitude(-4.1, -1.0),
-            'lng' => fake()->longitude(36.6, 39.8),
+            // Keep factory billboards inside the Nairobi metro so the browse map
+            // stays populated around the city rather than scattered across Kenya.
+            'lat' => fake()->latitude(-1.40, -1.16),
+            'lng' => fake()->longitude(36.65, 36.95),
             'size' => fake()->randomElement(['8ft x 16ft', '10ft x 20ft', '12ft x 24ft', '14ft x 28ft']),
             'type' => fake()->randomElement(BillboardType::cases())->value,
             'price_per_day' => $pricePerDay,

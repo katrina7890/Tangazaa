@@ -20,6 +20,10 @@ class BookingResource extends JsonResource
                 'id' => $this->billboard->id,
                 'title' => $this->billboard->title,
                 'location' => $this->billboard->location,
+                'lat' => $this->billboard->lat,
+                'lng' => $this->billboard->lng,
+                'type' => $this->billboard->type->value,
+                'price_per_week' => $this->billboard->price_per_week,
             ],
             'customer' => $this->whenLoaded('customer', fn () => [
                 'name' => $this->customer->name,

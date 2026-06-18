@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Booking\CreateBooking;
+use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Resources\BookingResource;
 use App\Models\Billboard;
+use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -31,5 +33,21 @@ class BookingController extends Controller
         $bookings = $request->user()->bookings()->with('billboard')->latest()->get();
 
         return BookingResource::collection($bookings);
+    }
+
+    public function cancel(Request $request, Booking $booking): BookingResource
+    {
+        // Customers may only cancel their own bookings.
+        abort_unless($booking->customer_id === $request->user()->id, 403);
+
+        abort_if(
+            $booking->status === BookingStatus::Cancelled,
+            422,
+            'This booking has already been cancelled.',
+        );
+
+        $booking->update(['status' => BookingStatus::Cancelled]);
+
+        return new BookingResource($booking->load('billboard'));
     }
 }

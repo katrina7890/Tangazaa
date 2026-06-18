@@ -77,6 +77,9 @@ class DatabaseSeeder extends Seeder
             ]);
         });
 
+        // Curated, real-world Nairobi sites so the browse map is well populated.
+        $this->call(NairobiBillboardSeeder::class);
+
         // Normal login history.
         foreach ([$admin, $owner, $customer] as $user) {
             LoginAttempt::create([
