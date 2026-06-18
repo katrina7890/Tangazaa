@@ -1,1 +1,16 @@
 .claude/
+
+# Local demo tunnel
+cloudflared.exe
+cloudflared.log
+api/.env.demobak
+
+# React SPA build copied into Laravel's public/ for the single-origin demo
+api/public/static/
+api/public/index.html
+api/public/asset-manifest.json
+api/public/manifest.json
+api/public/logo192.png
+api/public/logo512.png
+api/public/billboard-auth.jpg
+api/public/billboard-mockup.jpg

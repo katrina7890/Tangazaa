@@ -1,4 +1,16 @@
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+function resolveApiBase() {
+  // Explicit override wins (local dev sets REACT_APP_API_URL=http://localhost:8000).
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  // Otherwise, when served from a real host (e.g. the demo tunnel) the API is
+  // same-origin — Laravel serves this SPA — so use relative paths.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') return '';
+  }
+  return 'http://localhost:8000';
+}
+
+const API_URL = resolveApiBase();
 
 function getCookie(name) {
   const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
