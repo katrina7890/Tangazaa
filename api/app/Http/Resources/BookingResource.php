@@ -33,6 +33,11 @@ class BookingResource extends JsonResource
             'end_date' => $this->end_date->format('Y-m-d'),
             'total_price' => $this->total_price,
             'status' => $this->status->value,
+            'payment' => $this->whenLoaded('latestPayment', fn () => $this->latestPayment ? [
+                'reference' => $this->latestPayment->reference,
+                'status' => $this->latestPayment->status->value,
+                'amount' => $this->latestPayment->amount,
+            ] : null),
             'created_at' => $this->created_at->toIso8601String(),
         ];
     }

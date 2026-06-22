@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Models\Billboard;
 use App\Models\Booking;
 use App\Models\LoginAttempt;
+use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -70,10 +71,19 @@ class DatabaseSeeder extends Seeder
         );
 
         $billboards->random(min(8, $billboards->count()))->each(function (Billboard $billboard) use ($allCustomers) {
-            Booking::factory()->create([
+            $customer = $allCustomers->random();
+
+            $booking = Booking::factory()->create([
                 'billboard_id' => $billboard->id,
-                'customer_id' => $allCustomers->random()->id,
+                'customer_id' => $customer->id,
                 'status' => BookingStatus::Confirmed,
+            ]);
+
+            // A confirmed booking has, by definition, been paid for.
+            Payment::factory()->paid()->create([
+                'booking_id' => $booking->id,
+                'amount' => $booking->total_price,
+                'email' => $customer->email,
             ]);
         });
 

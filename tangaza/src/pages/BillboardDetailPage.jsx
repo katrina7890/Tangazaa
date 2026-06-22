@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import BillboardImage from '../components/BillboardImage';
+import PaymentModal from '../components/payments/PaymentModal';
 import { createBooking, fetchBillboard } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { billboardTypeLabel } from '../data/billboardTypes';
@@ -24,6 +25,7 @@ export default function BillboardDetailPage() {
   const [booking, setBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [payment, setPayment] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -60,18 +62,24 @@ export default function BillboardDetailPage() {
     setBooking(true);
     setBookingError('');
     try {
-      await createBooking({
+      // Booking is created `pending`; we hand the customer straight to checkout.
+      const { payment: checkout } = await createBooking({
         billboard_id: billboard.id,
         start_date: startDate,
         end_date: endDate,
       });
-      setBookingSuccess(true);
-      setBillboard(await fetchBillboard(id));
+      setPayment(checkout);
     } catch (error) {
       setBookingError(error.message);
     } finally {
       setBooking(false);
     }
+  }
+
+  async function handlePaymentSuccess() {
+    setPayment(null);
+    setBookingSuccess(true);
+    setBillboard(await fetchBillboard(id));
   }
 
   return (
@@ -117,6 +125,19 @@ export default function BillboardDetailPage() {
 
       <div className="mt-8 rounded-3xl border border-sand bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Check availability &amp; price</h2>
+
+        {bookingSuccess && (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="font-semibold text-emerald-800">Payment received — booking confirmed! 🎉</p>
+            <p className="mt-1 text-sm text-emerald-700">
+              Your campaign is booked.{' '}
+              <Link to="/dashboard" className="font-semibold underline">
+                View it in your dashboard
+              </Link>
+              .
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
@@ -165,23 +186,21 @@ export default function BillboardDetailPage() {
           </p>
         )}
 
-        {dateRangeValid && meetsMinimum && (
+        {!bookingSuccess && dateRangeValid && meetsMinimum && (
           <div className="mt-4">
             {available ? (
               <div className="rounded-2xl bg-emerald-50 p-4">
                 <p className="font-medium text-emerald-700">Available for {days} days</p>
                 <p className="mt-1 text-lg font-semibold text-emerald-900">{formatKES(total)} total</p>
 
-                {bookingSuccess ? (
-                  <p className="mt-3 text-sm font-medium text-emerald-700">Booking confirmed!</p>
-                ) : user?.role === 'customer' ? (
+                {user?.role === 'customer' ? (
                   <button
                     type="button"
                     onClick={handleConfirmBooking}
                     disabled={booking}
                     className="mt-3 rounded-full bg-gold px-5 py-2 text-sm font-bold text-forest transition hover:bg-gold-soft disabled:opacity-60"
                   >
-                    {booking ? 'Booking…' : 'Confirm Booking'}
+                    {booking ? 'Starting checkout…' : 'Book & Pay'}
                   </button>
                 ) : user ? (
                   <p className="mt-3 text-sm text-slate-600">Only customer accounts can book billboards.</p>
@@ -211,6 +230,14 @@ export default function BillboardDetailPage() {
           </div>
         )}
       </div>
+
+      {payment && (
+        <PaymentModal
+          payment={payment}
+          onSuccess={handlePaymentSuccess}
+          onClose={() => setPayment(null)}
+        />
+      )}
     </div>
   );
 }

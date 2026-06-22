@@ -15,7 +15,9 @@ current — it's the single source of truth for how we build this app.
   registers a company), `admin` (platform staff — not self-registrable, seed/tinker only). Stored
   as `App\Enums\UserRole` on the backend; role is chosen via a toggle on the signup form.
 - **Billboards and bookings are real backend data** (not mock) as of 2026-06-16 — `App\Models\Billboard`
-  (owned by an `owner`) and `App\Models\Booking` (made by a `customer`). Customers get `/dashboard`,
+  (owned by an `owner`) and `App\Models\Booking` (made by a `customer`). Bookings are
+  **pending-until-paid** through a simulated Paystack gateway (`App\Models\Payment`, added
+  2026-06-22) — see the **Payments / booking lifecycle** section below. Customers get `/dashboard`,
   owners get `/owner`,
   admins get `/admin`; all three dashboards are role-gated on the frontend via `RequireRole` and on
   the backend via the `role:` middleware + `BillboardPolicy`.
@@ -110,9 +112,11 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 | PUT | `/billboards/{id}` | owner (own), admin | `UpdateBillboardRequest`; authorized via `BillboardPolicy::update`. |
 | DELETE | `/billboards/{id}` | owner (own), admin | Authorized via `BillboardPolicy::delete`. |
 | GET | `/billboards/{id}/bookings` | owner (own), admin | Bookings on one billboard, with customer info. |
-| POST | `/bookings` | customer only | `CreateBooking` action enforces the 30-day minimum and overlap checks (mirrors the frontend's client-side check in `availability.js` — the backend is authoritative). |
-| GET | `/my/bookings` | customer only | The current customer's bookings. |
+| POST | `/bookings` | customer only | `CreateBooking` action enforces the 30-day minimum and overlap checks (mirrors the frontend's client-side check in `availability.js` — the backend is authoritative). Booking is created `pending` (not confirmed) and the response includes a freshly-`initialize`d `payment` so the SPA can go straight to checkout. See **Payments** below. |
+| GET | `/my/bookings` | customer only | The current customer's bookings (eager-loads `billboard` + `latestPayment`). |
 | PATCH | `/bookings/{id}/cancel` | customer (own) | Customer cancels their own booking (`BookingController@cancel`); 403 if it isn't theirs, 422 if already cancelled. Distinct from the admin cancel route below. |
+| POST | `/bookings/{id}/pay` | customer (own) | `PaymentController@initialize` — (re)opens a simulated Paystack checkout for a `pending` booking; 403 if not theirs, 422 if the booking isn't pending. Reuses an existing pending `payment` so repeated clicks don't duplicate transactions. Returns a `PaymentResource`. |
+| POST | `/payments/{reference}/verify` | customer (own) | `PaymentController@verify` — settles a checkout. Body `{ "success": bool }` (default `true`; `false` simulates a decline). On success re-checks date overlap, marks the payment `success` + booking `confirmed`; on conflict marks both failed/cancelled with a 422. Returns the updated `BookingResource` plus the `payment`. |
 | GET | `/admin/stats` | admin only | Companies/billboards/customers/bookings counts, revenue, recent signups, suspicious-login count. |
 | GET | `/admin/login-attempts` | admin only | Last 50 login attempts (success/fail, IP, flagged reason). |
 | GET | `/admin/users` | admin only | Paginated, `?search=` (name/email/company) and `?role=customer\|owner\|admin` filters. `AdminUserController@index`. |
@@ -120,6 +124,26 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 | GET | `/admin/billboards` | admin only | Paginated, platform-wide (active + inactive), `?search=` (title/location), eager-loads `owner`. `Admin\BillboardController@index`. Use the existing `PUT /billboards/{id}` (full payload) to activate/deactivate — admins already pass `BillboardPolicy::update`. |
 | GET | `/admin/bookings` | admin only | Paginated, platform-wide, `?search=` (billboard title/customer name/company). `Admin\BookingController@index`. |
 | PATCH | `/admin/bookings/{id}/cancel` | admin only | Sets status to `cancelled` regardless of owner. `Admin\BookingController@cancel`. |
+
+**Payments / booking lifecycle (as of 2026-06-22):** bookings are **pending-until-paid**. A
+booking starts `BookingStatus::Pending` and *does not hold the dates* — `booked_ranges` and all
+overlap checks only count `Confirmed` bookings, so two customers can have pending bookings on the
+same dates until one pays. Payment promotes the booking to `Confirmed`. Lifecycle:
+`POST /bookings` (creates pending + opens checkout) → `POST /payments/{reference}/verify`
+(`PaystackService::verify` re-checks overlap, then sets payment `success` + booking `confirmed`;
+a late conflict fails the payment and cancels the booking). The customer dashboard surfaces a
+**Complete payment** button on any still-`pending` booking, which calls `POST /bookings/{id}/pay`
+to resume checkout.
+
+The gateway is **simulated** — `App\Services\Payments\PaystackService` keeps Paystack's
+`initialize`/`verify` shape but resolves everything locally (no API keys), and the SPA renders its
+own Paystack-styled modal (`components/payments/PaymentModal.jsx`) against the two payment
+endpoints. Swap in real Paystack HTTP calls inside `PaystackService` when going live; the
+controller/route/response contract shouldn't need to change. `payments` table: `booking_id`,
+`reference` (unique, `TGZ-…`), `amount`, `email`, `channel`, `status`
+(`App\Enums\PaymentStatus`: `pending`/`success`/`failed`), `paid_at`. A `Booking hasMany Payment`,
+with a `latestPayment` relation for list views. `verify` is idempotent (re-verifying a settled
+payment is a no-op).
 
 **Account suspension:** `users.is_suspended` (boolean, default `false`). A suspended user's
 `POST /login` is rejected with a 422 on the `email` field (checked in `AuthController::login`
@@ -196,7 +220,10 @@ around the city rather than scattering across Kenya.
   key — see `src/components/map/tileThemes.js`). `MapBrowsePage` is at `/map`. Clicking a marker
   `flyTo`s/zooms into that spot (via the shared `mapRef`) and opens a popup with the billboard's
   photo (`BillboardImage`) and a spec summary — type, size, weekly/daily price, and an
-  availability badge when campaign dates are selected.
+  availability badge when campaign dates are selected. Clicking a marker also sets `selectedId`,
+  which surfaces a **selected-billboard card** at the top of `FilterPanel` (photo-less summary:
+  title, location, type/size, price range, "available from" date, a clear control, and a
+  **View details & book** button) so the selection is visible without relying on the popup.
 - **Auth:** `src/context/AuthContext.jsx` (`useAuth()`) wraps the app; checks `GET /api/user` on
   mount to restore the session, exposes `login`/`register`/`logout`. `src/api.js`'s `apiFetch`
   wraps `fetch` with `credentials: 'include'`, JSON headers, and CSRF token handling;
@@ -218,8 +245,11 @@ around the city rather than scattering across Kenya.
   recreate it.
 - **Dashboards:** `CustomerDashboardPage` (`/dashboard`, role `customer`) shows the customer's
   bookings — summary stat cards, a Leaflet map of their booked billboards' locations, and per-booking
-  cards (placeholder photo via `components/BillboardImage.jsx`, status badge, dates, total, and a
-  **Cancel booking** action wired to `cancelMyBooking`). `OwnerDashboardPage` (`/owner`, role
+  cards (placeholder photo via `components/BillboardImage.jsx`, status badge, dates, total, a
+  **Cancel booking** action wired to `cancelMyBooking`, and a **Complete payment** button on any
+  still-`pending` booking that opens the `components/payments/PaymentModal.jsx` checkout via
+  `initializePayment`). The book-and-pay entry point is on `BillboardDetailPage` ("Book & Pay" →
+  `createBooking` returns the booking + an open `payment` → same `PaymentModal`). `OwnerDashboardPage` (`/owner`, role
   `owner`/`admin`) lists/creates/edits/deletes
   the current user's billboards (`components/owner/BillboardForm.jsx`) and views bookings per
   billboard (`components/owner/BookingsModal.jsx`). `AdminDashboardPage` (`/admin`, role `admin`)
@@ -231,8 +261,10 @@ around the city rather than scattering across Kenya.
   debounce their search input (250ms) before refetching. Both dashboards are gated by
   `components/RequireRole.jsx`, which redirects guests to `/login` and wrong-role users to
   `utils/roles.js#dashboardPathForRole(user.role)` (owner → `/owner`, admin → `/admin`, customer →
-  `/dashboard`) — the same helper sends users to the right place after login/register, and the
-  `Header` "DASHBOARD" link uses it for every signed-in role.
+  `/dashboard`) — the same helper sends users to the right place after login/register. The
+  `Header` shows a signed-in user's initials in a **gold avatar button that opens an account
+  dropdown** (role/company line, a **Dashboard** link via `dashboardPathForRole`, and **Sign out**);
+  it closes on outside-click, Escape, or navigation. Guests see a "SIGN IN" link instead.
 - **Auth screens** (`LoginPage`/`SignupPage`) share `components/AuthLayout.jsx` — a full-bleed
   billboard backdrop (forest overlay + centred cream card). The backdrop loads an optional photo from
   `/public` (`billboard-auth.jpg` for login, `billboard-mockup.jpg` for signup) and **falls back to

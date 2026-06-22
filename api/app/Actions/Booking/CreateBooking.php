@@ -37,12 +37,15 @@ class CreateBooking
             ]);
         }
 
+        // Created unconfirmed — the booking is only held once payment succeeds
+        // (see App\Services\Payments\PaystackService). Until then it doesn't block
+        // the dates for other customers (booked_ranges only counts Confirmed).
         return $billboard->bookings()->create([
             'customer_id' => $customer->id,
             'start_date' => $start,
             'end_date' => $end,
             'total_price' => $days * $billboard->price_per_day,
-            'status' => BookingStatus::Confirmed,
+            'status' => BookingStatus::Pending,
         ]);
     }
 }

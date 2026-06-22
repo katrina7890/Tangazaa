@@ -7,14 +7,17 @@ use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Resources\BookingResource;
+use App\Http\Resources\PaymentResource;
 use App\Models\Billboard;
 use App\Models\Booking;
+use App\Services\Payments\PaystackService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class BookingController extends Controller
 {
-    public function store(StoreBookingRequest $request, CreateBooking $createBooking): BookingResource
+    public function store(StoreBookingRequest $request, CreateBooking $createBooking, PaystackService $paystack): JsonResponse
     {
         $billboard = Billboard::findOrFail($request->integer('billboard_id'));
 
@@ -25,12 +28,19 @@ class BookingController extends Controller
             $request->string('end_date')->toString(),
         );
 
-        return new BookingResource($booking->load('billboard'));
+        // Open a checkout immediately so the SPA can hand the customer straight
+        // to the (simulated) Paystack payment step.
+        $payment = $paystack->initialize($booking, $request->user()->email);
+
+        return (new BookingResource($booking->load('billboard')))
+            ->additional(['payment' => new PaymentResource($payment)])
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function mine(Request $request): AnonymousResourceCollection
     {
-        $bookings = $request->user()->bookings()->with('billboard')->latest()->get();
+        $bookings = $request->user()->bookings()->with(['billboard', 'latestPayment'])->latest()->get();
 
         return BookingResource::collection($bookings);
     }

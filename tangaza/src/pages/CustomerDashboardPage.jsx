@@ -3,9 +3,10 @@ import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaf
 import { Link } from 'react-router-dom';
 import BillboardImage from '../components/BillboardImage';
 import DashboardHero from '../components/DashboardHero';
+import PaymentModal from '../components/payments/PaymentModal';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
 import { billboardTypeLabel } from '../data/billboardTypes';
-import { cancelMyBooking, fetchMyBookings } from '../api';
+import { cancelMyBooking, fetchMyBookings, initializePayment } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { formatKES } from '../utils/availability';
 
@@ -15,6 +16,8 @@ export default function CustomerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
+  const [checkout, setCheckout] = useState(null);
+  const [payingId, setPayingId] = useState(null);
 
   useEffect(() => {
     fetchMyBookings()
@@ -43,6 +46,29 @@ export default function CustomerDashboardPage() {
     });
     return [...seen.values()];
   }, [active]);
+
+  async function handlePay(booking) {
+    setError('');
+    setPayingId(booking.id);
+    try {
+      const payment = await initializePayment(booking.id);
+      setCheckout(payment);
+    } catch (payError) {
+      setError(payError.message);
+      setPayingId(null);
+    }
+  }
+
+  function handlePaymentSuccess(updated) {
+    setCheckout(null);
+    setPayingId(null);
+    setBookings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+  }
+
+  function closeCheckout() {
+    setCheckout(null);
+    setPayingId(null);
+  }
 
   async function handleCancel(booking) {
     if (!window.confirm(`Cancel your booking for “${booking.billboard.title}”? This cannot be undone.`)) {
@@ -138,20 +164,27 @@ export default function CustomerDashboardPage() {
                   key={booking.id}
                   booking={booking}
                   cancelling={cancellingId === booking.id}
+                  paying={payingId === booking.id}
                   onCancel={() => handleCancel(booking)}
+                  onPay={() => handlePay(booking)}
                 />
               ))}
             </div>
           )}
         </section>
       </div>
+
+      {checkout && (
+        <PaymentModal payment={checkout} onSuccess={handlePaymentSuccess} onClose={closeCheckout} />
+      )}
     </div>
   );
 }
 
-function BookingCard({ booking, cancelling, onCancel }) {
+function BookingCard({ booking, cancelling, paying, onCancel, onPay }) {
   const { billboard } = booking;
   const cancellable = booking.status !== 'cancelled';
+  const payable = booking.status === 'pending';
 
   return (
     <div className="group overflow-hidden rounded-3xl border border-sand bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
@@ -176,16 +209,28 @@ function BookingCard({ booking, cancelling, onCancel }) {
           <Row label="Total" value={<span className="font-semibold text-gold-dark">{formatKES(booking.totalPrice)}</span>} />
         </dl>
 
-        {cancellable && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={cancelling}
-            className="mt-5 w-full rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
-          >
-            {cancelling ? 'Cancelling…' : 'Cancel booking'}
-          </button>
-        )}
+        <div className="mt-5 space-y-2">
+          {payable && (
+            <button
+              type="button"
+              onClick={onPay}
+              disabled={paying}
+              className="w-full rounded-full bg-gold px-4 py-2.5 text-sm font-bold text-forest transition hover:bg-gold-soft disabled:opacity-60"
+            >
+              {paying ? 'Opening checkout…' : 'Complete payment'}
+            </button>
+          )}
+          {cancellable && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={cancelling}
+              className="w-full rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
+            >
+              {cancelling ? 'Cancelling…' : 'Cancel booking'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

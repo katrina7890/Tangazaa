@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillboardController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/bookings', [BookingController::class, 'store']);
         Route::get('/my/bookings', [BookingController::class, 'mine']);
         Route::patch('/bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+
+        // Simulated Paystack checkout.
+        Route::post('/bookings/{booking}/pay', [PaymentController::class, 'initialize']);
+        Route::post('/payments/{reference}/verify', [PaymentController::class, 'verify']);
     });
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {

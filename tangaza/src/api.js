@@ -143,9 +143,42 @@ export async function fetchBillboardBookings(id) {
   return data;
 }
 
+function mapPayment(payment) {
+  if (!payment) return null;
+  return {
+    id: payment.id,
+    reference: payment.reference,
+    amount: payment.amount,
+    email: payment.email,
+    channel: payment.channel,
+    status: payment.status,
+    paidAt: payment.paid_at ?? null,
+  };
+}
+
+// Creating a booking opens a (simulated) Paystack checkout; the booking stays
+// `pending` until the returned payment is verified.
 export async function createBooking(payload) {
-  const { data } = await apiFetch('/api/bookings', { method: 'POST', body: JSON.stringify(payload) });
-  return data;
+  const { data, payment } = await apiFetch('/api/bookings', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return { booking: mapBooking(data), payment: mapPayment(payment) };
+}
+
+// (Re)open checkout for a booking the customer hasn't finished paying for.
+export async function initializePayment(bookingId) {
+  const { data } = await apiFetch(`/api/bookings/${bookingId}/pay`, { method: 'POST' });
+  return mapPayment(data);
+}
+
+// Settle a checkout. Pass success=false to simulate a declined payment.
+export async function verifyPayment(reference, success = true) {
+  const { data, payment } = await apiFetch(`/api/payments/${reference}/verify`, {
+    method: 'POST',
+    body: JSON.stringify({ success }),
+  });
+  return { booking: mapBooking(data), payment: mapPayment(payment) };
 }
 
 function mapBooking(booking) {
@@ -164,6 +197,7 @@ function mapBooking(booking) {
     endDate: booking.end_date,
     totalPrice: booking.total_price,
     status: booking.status,
+    payment: booking.payment ? mapPayment(booking.payment) : null,
     createdAt: booking.created_at,
   };
 }
