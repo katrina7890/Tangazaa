@@ -1,6 +1,10 @@
-import { MIN_CAMPAIGN_DAYS, formatKES } from '../../utils/availability';
+import { MIN_CAMPAIGN_DAYS, availableFrom, formatKES, isAvailable } from '../../utils/availability';
+import { billboardTypeLabel } from '../../data/billboardTypes';
 
 export default function FilterPanel({
+  selectedBillboard,
+  onClearSelected,
+  onViewDetails,
   query,
   onQueryChange,
   startDate,
@@ -39,6 +43,17 @@ export default function FilterPanel({
       <p className="mt-2 text-2xl font-bold text-slate-900">
         {count} Board{count === 1 ? '' : 's'}
       </p>
+
+      {selectedBillboard && (
+        <SelectedBillboardCard
+          billboard={selectedBillboard}
+          startDate={startDate}
+          endDate={endDate}
+          meetsMinimum={meetsMinimum}
+          onClear={onClearSelected}
+          onViewDetails={onViewDetails}
+        />
+      )}
 
       <SectionLabel icon={<CalendarIcon />}>Campaign Dates</SectionLabel>
       <div className="rounded-2xl bg-campaign-green p-3">
@@ -133,6 +148,89 @@ export default function FilterPanel({
   );
 }
 
+function SelectedBillboardCard({ billboard, startDate, endDate, meetsMinimum, onClear, onViewDetails }) {
+  const datesChosen = Boolean(startDate && endDate && meetsMinimum);
+  const free = datesChosen && isAvailable(billboard.bookedRanges, startDate, endDate);
+  const freeFrom = availableFrom(billboard.bookedRanges);
+
+  return (
+    <div className="mt-4 rounded-2xl border-2 border-gold bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-forest">{billboard.title}</p>
+          <p className="truncate text-xs text-stone-500">{billboard.location}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label="Clear selection"
+          className="-mr-1 -mt-1 rounded-full p-1 text-stone-400 transition hover:bg-sand hover:text-stone-600"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1">
+        <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-gold-dark">
+          {billboardTypeLabel(billboard.type)}
+        </span>
+        <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-stone-600">
+          {billboard.size}
+        </span>
+      </div>
+
+      <dl className="mt-3 space-y-2 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <dt className="flex items-center gap-1.5 text-stone-500">
+            <CalendarIcon />
+            Available from
+          </dt>
+          <dd className="font-semibold text-forest">{formatDate(freeFrom)}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="flex items-center gap-1.5 text-stone-500">
+            <TagIcon />
+            Price range
+          </dt>
+          <dd className="text-right font-semibold text-gold-dark">
+            {formatKES(billboard.pricePerDay)}
+            <span className="font-normal text-stone-500">/day</span>
+            {' · '}
+            {formatKES(billboard.pricePerWeek)}
+            <span className="font-normal text-stone-500">/wk</span>
+          </dd>
+        </div>
+      </dl>
+
+      {datesChosen && (
+        <span
+          className={`mt-3 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+            free ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
+          }`}
+        >
+          {free ? 'Available for your dates' : 'Booked for your dates'}
+        </span>
+      )}
+
+      <button
+        type="button"
+        onClick={() => onViewDetails(billboard.id)}
+        className="mt-3 w-full rounded-full bg-gold px-3 py-2 text-xs font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft"
+      >
+        View details &amp; book
+      </button>
+    </div>
+  );
+}
+
+function formatDate(value) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 function SectionLabel({ icon, children }) {
   return (
     <div className="mb-2 mt-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700">
@@ -190,6 +288,23 @@ function BudgetIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
       <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5" aria-hidden="true">
+      <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.2V5a2 2 0 0 1 2-2h7.2a2 2 0 0 1 1.4.6l7 7a2 2 0 0 1 0 2.8z" />
+      <circle cx="7.5" cy="7.5" r="1.5" />
     </svg>
   );
 }

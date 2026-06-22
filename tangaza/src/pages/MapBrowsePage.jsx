@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import FilterPanel from '../components/map/FilterPanel';
 import MapControls from '../components/map/MapControls';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
-import BillboardImage from '../components/BillboardImage';
 import { fetchBillboards } from '../api';
 import { BILLBOARD_TYPES, billboardTypeLabel } from '../data/billboardTypes';
 import { MIN_CAMPAIGN_DAYS, daysBetween, formatKES, isAvailable } from '../utils/availability';
@@ -24,6 +23,7 @@ export default function MapBrowsePage() {
   const [location, setLocation] = useState('All locations');
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [maxWeeklyBudget, setMaxWeeklyBudget] = useState(Infinity);
+  const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
     fetchBillboards()
@@ -101,15 +101,20 @@ export default function MapBrowsePage() {
               radius={9}
               pathOptions={{ color: '#fff', weight: 2, fillColor: '#d6a23e', fillOpacity: 1 }}
               eventHandlers={{
-                // Zoom into the spot the customer clicked, then the popup anchors there.
-                click: () => mapRef.current?.flyTo([billboard.lat, billboard.lng], 15, { duration: 0.8 }),
+                // Zoom into the spot the customer clicked, surface its details in
+                // the side panel, then the popup anchors there.
+                click: () => {
+                  setSelectedId(billboard.id);
+                  mapRef.current?.flyTo([billboard.lat, billboard.lng], 15, { duration: 0.8 });
+                },
               }}
             >
               <Popup>
                 <div className="w-56">
-                  <BillboardImage
-                    id={billboard.id}
-                    title={billboard.title}
+                  <img
+                    src="/map-billboard.jpg"
+                    alt={billboard.title}
+                    loading="lazy"
                     className="h-28 w-full rounded-lg object-cover"
                   />
                   <p className="mt-2 font-semibold text-forest">{billboard.title}</p>
@@ -170,6 +175,9 @@ export default function MapBrowsePage() {
       )}
 
       <FilterPanel
+        selectedBillboard={billboards.find((billboard) => billboard.id === selectedId) || null}
+        onClearSelected={() => setSelectedId(null)}
+        onViewDetails={(billboardId) => navigate(`/billboards/${billboardId}`)}
         query={query}
         onQueryChange={setQuery}
         startDate={startDate}
