@@ -1,0 +1,85 @@
+# Render Blueprint — Laravel API + free Postgres.
+# Deploy: Render dashboard → New → Blueprint → pick this repo. Render reads this
+# file, provisions the database, builds api/Dockerfile, and wires the DB env vars.
+#
+# After the first deploy, set the three `sync: false` vars in the dashboard
+# (APP_KEY + the three frontend/cookie vars), then run the seeder once via the
+# service Shell:  php artisan migrate --force --seed
+services:
+  - type: web
+    name: tangaza-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: api/Dockerfile
+    dockerContext: api
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: Tangazaa
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      # Generate with `php artisan key:generate --show` and paste in the dashboard.
+      - key: APP_KEY
+        sync: false
+      # Render serves this service at https://<name>.onrender.com — confirm/adjust.
+      - key: APP_URL
+        value: https://tangaza-api.onrender.com
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+
+      # --- Database (wired from the free Postgres defined below) ---
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: tangaza-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: tangaza-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: tangaza-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: tangaza-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: tangaza-db
+          property: password
+
+      # --- Sessions / queue / cache / mail (demo-simple, no extra services) ---
+      - key: SESSION_DRIVER
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: CACHE_STORE
+        value: database
+      - key: MAIL_MAILER
+        value: log
+
+      # --- CORS / Sanctum: set to the Vercel frontend once it's deployed ---
+      # FRONTEND_URLS: full origin incl. https://   e.g. https://tangazaa.vercel.app
+      - key: FRONTEND_URLS
+        sync: false
+      # SANCTUM_STATEFUL_DOMAINS: host only, no scheme   e.g. tangazaa.vercel.app
+      - key: SANCTUM_STATEFUL_DOMAINS
+        sync: false
+      # SESSION_DOMAIN: leave blank for now (host-only cookie). Set a shared parent
+      # domain (e.g. .tangazaa.com) only once both ends share one root domain.
+      - key: SESSION_DOMAIN
+        sync: false
+
+databases:
+  - name: tangaza-db
+    plan: free
+    databaseName: tangaza
+    user: tangaza
