@@ -3,6 +3,7 @@ import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaf
 import { Link } from 'react-router-dom';
 import BillboardImage from '../components/BillboardImage';
 import DashboardHero from '../components/DashboardHero';
+import PaymentStatusBadge from '../components/PaymentStatusBadge';
 import PaymentModal from '../components/payments/PaymentModal';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
 import { billboardTypeLabel } from '../data/billboardTypes';
@@ -202,6 +203,10 @@ function BookingCard({ booking, cancelling, paying, onCancel, onPay }) {
       <div className="p-5">
         <h3 className="font-semibold text-forest">{billboard.title}</h3>
         <p className="text-sm text-stone-500">{billboard.location}</p>
+
+        <div className="mt-3">
+          <PaymentStatusBadge bookingStatus={booking.status} paymentStatus={booking.payment?.status} />
+        </div>
 
         <dl className="mt-4 space-y-1.5 text-sm">
           <Row label="Type" value={billboardTypeLabel(billboard.type)} />

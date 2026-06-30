@@ -35,6 +35,9 @@ class UpdateBillboardRequest extends FormRequest
             'price_per_week' => ['required', 'integer', 'min:1'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
+            // Editable, but no past-date guard here: an existing billboard may
+            // legitimately already be available from a date in the past.
+            'available_from' => ['sometimes', 'nullable', 'date'],
         ];
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Billboard;
 use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class BookingTest extends TestCase
@@ -19,8 +20,8 @@ class BookingTest extends TestCase
 
         $response = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-30',
+            'start_date' => Carbon::today()->addDay()->toDateString(),
+            'end_date' => Carbon::today()->addDays(30)->toDateString(),
         ]);
 
         $response->assertCreated();
@@ -38,12 +39,44 @@ class BookingTest extends TestCase
 
         $response = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-10',
+            'start_date' => Carbon::today()->addDay()->toDateString(),
+            'end_date' => Carbon::today()->addDays(10)->toDateString(),
         ]);
 
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors('end_date');
+    }
+
+    public function test_a_booking_in_the_past_is_rejected(): void
+    {
+        $customer = User::factory()->create();
+        $billboard = Billboard::factory()->create();
+
+        $response = $this->actingAs($customer)->postJson('/api/bookings', [
+            'billboard_id' => $billboard->id,
+            'start_date' => Carbon::today()->subDays(5)->toDateString(),
+            'end_date' => Carbon::today()->addDays(30)->toDateString(),
+        ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors('start_date');
+    }
+
+    public function test_a_booking_before_the_billboard_is_available_is_rejected(): void
+    {
+        $customer = User::factory()->create();
+        $billboard = Billboard::factory()->create([
+            'available_from' => Carbon::today()->addMonth()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($customer)->postJson('/api/bookings', [
+            'billboard_id' => $billboard->id,
+            'start_date' => Carbon::today()->addDay()->toDateString(),
+            'end_date' => Carbon::today()->addDays(31)->toDateString(),
+        ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors('start_date');
     }
 
     public function test_an_overlapping_booking_is_rejected(): void
@@ -53,14 +86,14 @@ class BookingTest extends TestCase
 
         Booking::factory()->create([
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-31',
+            'start_date' => Carbon::today()->addDay()->toDateString(),
+            'end_date' => Carbon::today()->addDays(31)->toDateString(),
         ]);
 
         $response = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-20',
-            'end_date' => '2026-08-25',
+            'start_date' => Carbon::today()->addDays(20)->toDateString(),
+            'end_date' => Carbon::today()->addDays(56)->toDateString(),
         ]);
 
         $response->assertUnprocessable();
@@ -74,8 +107,8 @@ class BookingTest extends TestCase
 
         $response = $this->actingAs($owner)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-30',
+            'start_date' => Carbon::today()->addDay()->toDateString(),
+            'end_date' => Carbon::today()->addDays(30)->toDateString(),
         ]);
 
         $response->assertForbidden();

@@ -25,6 +25,20 @@ class CreateBooking
             ]);
         }
 
+        // Authoritative mirror of the customer-facing calendar: no booking may
+        // start in the past or before the owner's published availability.
+        if ($start->lt(Carbon::today())) {
+            throw ValidationException::withMessages([
+                'start_date' => ['Bookings cannot start on a date that has already passed.'],
+            ]);
+        }
+
+        if ($billboard->available_from && $start->lt($billboard->available_from->startOfDay())) {
+            throw ValidationException::withMessages([
+                'start_date' => ['This billboard is only available from '.$billboard->available_from->format('M j, Y').'.'],
+            ]);
+        }
+
         $overlaps = $billboard->bookings()
             ->where('status', BookingStatus::Confirmed)
             ->where('start_date', '<=', $end)

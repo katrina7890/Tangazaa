@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createBillboard, updateBillboard } from '../../api';
 import { BILLBOARD_TYPES } from '../../data/billboardTypes';
+import { todayISO } from '../../utils/availability';
 
 export default function BillboardForm({ billboard, onSaved, onCancel }) {
   const [form, setForm] = useState({
@@ -14,6 +15,7 @@ export default function BillboardForm({ billboard, onSaved, onCancel }) {
     price_per_week: billboard?.pricePerWeek ?? '',
     description: billboard?.description || '',
     is_active: billboard?.isActive ?? true,
+    available_from: billboard?.availableFrom || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -32,6 +34,9 @@ export default function BillboardForm({ billboard, onSaved, onCancel }) {
       lng: Number(form.lng),
       price_per_day: Number(form.price_per_day),
       price_per_week: Number(form.price_per_week),
+      // Send null rather than '' so editing a legacy billboard without a set
+      // date doesn't trip the backend's `date` rule.
+      available_from: form.available_from || null,
     };
 
     try {
@@ -128,6 +133,20 @@ export default function BillboardForm({ billboard, onSaved, onCancel }) {
             onChange={(event) => update('price_per_week', event.target.value)}
             className={inputClass}
           />
+        </Field>
+        <Field label="Available from">
+          <input
+            required={!billboard}
+            type="date"
+            min={todayISO()}
+            value={form.available_from}
+            onChange={(event) => update('available_from', event.target.value)}
+            className={inputClass}
+          />
+          <span className="mt-1 block text-xs font-normal text-slate-500">
+            The first day customers can book. Availability after that updates automatically as
+            bookings come in.
+          </span>
         </Field>
       </div>
 

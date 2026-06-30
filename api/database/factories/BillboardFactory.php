@@ -35,6 +35,8 @@ class BillboardFactory extends Factory
             'price_per_week' => $pricePerDay * 7,
             'description' => fake()->sentence(15),
             'is_active' => true,
+            // A week ago by default so factory billboards are immediately bookable.
+            'available_from' => now()->subWeek()->format('Y-m-d'),
         ];
     }
 }

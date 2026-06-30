@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Billboard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class BillboardTest extends TestCase
@@ -46,6 +47,7 @@ class BillboardTest extends TestCase
             'price_per_day' => 5000,
             'price_per_week' => 35000,
             'description' => 'A test billboard.',
+            'available_from' => Carbon::today()->addWeek()->toDateString(),
         ]);
 
         $response->assertCreated();

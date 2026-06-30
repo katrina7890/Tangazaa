@@ -73,7 +73,7 @@ class BillboardController extends Controller
         Gate::authorize('update', $billboard);
 
         return BookingResource::collection(
-            $billboard->bookings()->with('customer')->latest()->get()
+            $billboard->bookings()->with(['customer', 'latestPayment'])->latest()->get()
         );
     }
 }

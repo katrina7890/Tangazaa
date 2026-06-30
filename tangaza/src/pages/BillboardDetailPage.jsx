@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import AvailabilityCalendar from '../components/AvailabilityCalendar';
 import BillboardImage from '../components/BillboardImage';
 import PaymentModal from '../components/payments/PaymentModal';
 import { createBooking, fetchBillboard } from '../api';
@@ -11,6 +12,7 @@ import {
   daysBetween,
   formatKES,
   isAvailable,
+  todayISO,
 } from '../utils/availability';
 
 export default function BillboardDetailPage() {
@@ -49,6 +51,12 @@ export default function BillboardDetailPage() {
       </div>
     );
   }
+
+  // Earliest bookable date: the later of today and the owner's available-from.
+  const bookFrom =
+    billboard.availableFrom && billboard.availableFrom > todayISO()
+      ? billboard.availableFrom
+      : todayISO();
 
   const hasDateRange = Boolean(startDate && endDate);
   const dateRangeValid = hasDateRange && startDate <= endDate;
@@ -139,41 +147,29 @@ export default function BillboardDetailPage() {
           </div>
         )}
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="startDate" className="block text-sm font-medium text-slate-700">
-              Start date
-            </label>
-            <input
-              id="startDate"
-              type="date"
-              value={startDate}
-              onChange={(event) => {
-                setStartDate(event.target.value);
-                setBookingSuccess(false);
-              }}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-            />
-          </div>
-          <div>
-            <label htmlFor="endDate" className="block text-sm font-medium text-slate-700">
-              End date
-            </label>
-            <input
-              id="endDate"
-              type="date"
-              value={endDate}
-              min={startDate || undefined}
-              onChange={(event) => {
-                setEndDate(event.target.value);
-                setBookingSuccess(false);
-              }}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
-            />
-          </div>
+        {bookFrom > todayISO() && (
+          <p className="mt-3 rounded-xl bg-cream px-3 py-2 text-sm text-stone-600">
+            Available from {formatDisplayDate(bookFrom)} — earlier dates are unavailable.
+          </p>
+        )}
+
+        <div className="mt-4">
+          <AvailabilityCalendar
+            bookedRanges={billboard.bookedRanges}
+            minDate={bookFrom}
+            value={{ start: startDate, end: endDate }}
+            onChange={({ start, end }) => {
+              setStartDate(start);
+              setEndDate(end);
+              setBookingSuccess(false);
+            }}
+          />
         </div>
 
-        <p className="mt-3 text-xs text-slate-500">Min. {MIN_CAMPAIGN_DAYS} days booking</p>
+        <p className="mt-3 text-xs text-slate-500">
+          Pick a start date, then an end date. Crossed-out days are already booked. Min.{' '}
+          {MIN_CAMPAIGN_DAYS} days booking.
+        </p>
 
         {hasDateRange && !dateRangeValid && (
           <p className="mt-4 text-sm text-amber-600">End date must be on or after the start date.</p>
@@ -240,4 +236,12 @@ export default function BillboardDetailPage() {
       )}
     </div>
   );
+}
+
+function formatDisplayDate(dateISO) {
+  return new Date(`${dateISO}T00:00:00`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }

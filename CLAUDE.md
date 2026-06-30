@@ -105,14 +105,14 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 
 | Method | Path | Access | Notes |
 |---|---|---|---|
-| GET | `/billboards` | public | Active billboards only, with `booked_ranges` (confirmed bookings). |
+| GET | `/billboards` | public | Active billboards only, with `booked_ranges` (confirmed bookings), `available_from`, and a computed `next_available_from`. |
 | GET | `/billboards/{id}` | public | Single billboard, same shape. |
 | GET | `/my/billboards` | owner, admin | The current owner's billboards (including inactive). |
-| POST | `/billboards` | owner, admin | `StoreBillboardRequest`; authorized via `BillboardPolicy::create`. |
+| POST | `/billboards` | owner, admin | `StoreBillboardRequest` (now requires `available_from`, a `date` `after_or_equal:today`); authorized via `BillboardPolicy::create`. |
 | PUT | `/billboards/{id}` | owner (own), admin | `UpdateBillboardRequest`; authorized via `BillboardPolicy::update`. |
 | DELETE | `/billboards/{id}` | owner (own), admin | Authorized via `BillboardPolicy::delete`. |
-| GET | `/billboards/{id}/bookings` | owner (own), admin | Bookings on one billboard, with customer info. |
-| POST | `/bookings` | customer only | `CreateBooking` action enforces the 30-day minimum and overlap checks (mirrors the frontend's client-side check in `availability.js` — the backend is authoritative). Booking is created `pending` (not confirmed) and the response includes a freshly-`initialize`d `payment` so the SPA can go straight to checkout. See **Payments** below. |
+| GET | `/billboards/{id}/bookings` | owner (own), admin | Bookings on one billboard, with customer info and `latestPayment` (so owners see paid/pending per booking). |
+| POST | `/bookings` | customer only | `CreateBooking` action enforces the 30-day minimum, the overlap check, **and (as of 2026-06-30) rejects a `start_date` in the past or before the billboard's `available_from`** (mirrors the customer calendar — the backend is authoritative). Booking is created `pending` (not confirmed) and the response includes a freshly-`initialize`d `payment` so the SPA can go straight to checkout. See **Payments** below. |
 | GET | `/my/bookings` | customer only | The current customer's bookings (eager-loads `billboard` + `latestPayment`). |
 | PATCH | `/bookings/{id}/cancel` | customer (own) | Customer cancels their own booking (`BookingController@cancel`); 403 if it isn't theirs, 422 if already cancelled. Distinct from the admin cancel route below. |
 | POST | `/bookings/{id}/pay` | customer (own) | `PaymentController@initialize` — (re)opens a simulated Paystack checkout for a `pending` booking; 403 if not theirs, 422 if the booking isn't pending. Reuses an existing pending `payment` so repeated clicks don't duplicate transactions. Returns a `PaymentResource`. |
@@ -125,6 +125,19 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 | GET | `/admin/bookings` | admin only | Paginated, platform-wide, `?search=` (billboard title/customer name/company). `Admin\BookingController@index`. |
 | PATCH | `/admin/bookings/{id}/cancel` | admin only | Sets status to `cancelled` regardless of owner. `Admin\BookingController@cancel`. |
 
+**Billboard availability (as of 2026-06-30):** `billboards.available_from` (nullable `date`) is the
+first day an owner makes a board bookable; it's **required** when creating a billboard (the form
+sends it) but nullable in the DB so seed data without it is valid (a null is treated as "available
+today"). The model's `Billboard::nextAvailableDate()` derives the *next genuinely free* date —
+the later of today / `available_from`, stepped past any confirmed booking that currently covers it
+— and the resource exposes it as `next_available_from` (only `whenLoaded('bookings')`, to avoid an
+N+1 on list endpoints). The frontend mirrors the walk in `availability.js#availableFrom`. A shared
+`components/AvailabilityCalendar.jsx` renders a month grid that greys out past / pre-availability
+days and crosses out booked days; it's interactive (range select) on the customer
+`BillboardDetailPage` and read-only (`mode="view"`, next-free date ringed) in the owner's
+`BookingsModal`. The owner dashboard also shows a Leaflet map of their billboards and a
+"next available" badge per card.
+
 **Payments / booking lifecycle (as of 2026-06-22):** bookings are **pending-until-paid**. A
 booking starts `BookingStatus::Pending` and *does not hold the dates* — `booked_ranges` and all
 overlap checks only count `Confirmed` bookings, so two customers can have pending bookings on the
@@ -133,7 +146,10 @@ same dates until one pays. Payment promotes the booking to `Confirmed`. Lifecycl
 (`PaystackService::verify` re-checks overlap, then sets payment `success` + booking `confirmed`;
 a late conflict fails the payment and cancels the booking). The customer dashboard surfaces a
 **Complete payment** button on any still-`pending` booking, which calls `POST /bookings/{id}/pay`
-to resume checkout.
+to resume checkout. Both the customer dashboard and the owner's bookings list render a shared
+`components/PaymentStatusBadge.jsx` chip — **Paid** (booking `confirmed` or payment `success`),
+**Payment pending**, or **Payment failed** — so each side can see a booking's payment state at a
+glance (hidden for `cancelled` bookings, which already show a status badge).
 
 The gateway is **simulated** — `App\Services\Payments\PaystackService` keeps Paystack's
 `initialize`/`verify` shape but resolves everything locally (no API keys), and the SPA renders its
@@ -251,8 +267,10 @@ around the city rather than scattering across Kenya.
   `initializePayment`). The book-and-pay entry point is on `BillboardDetailPage` ("Book & Pay" →
   `createBooking` returns the booking + an open `payment` → same `PaymentModal`). `OwnerDashboardPage` (`/owner`, role
   `owner`/`admin`) lists/creates/edits/deletes
-  the current user's billboards (`components/owner/BillboardForm.jsx`) and views bookings per
-  billboard (`components/owner/BookingsModal.jsx`). `AdminDashboardPage` (`/admin`, role `admin`)
+  the current user's billboards (`components/owner/BillboardForm.jsx` — includes the **Available
+  from** field), shows a Leaflet map of their billboards plus a "next available" badge per card,
+  and opens an availability view per billboard (`components/owner/BookingsModal.jsx` — a read-only
+  `AvailabilityCalendar` + the bookings list). `AdminDashboardPage` (`/admin`, role `admin`)
   is tabbed: **Overview** (stat cards, recent signups, login-attempt/suspicious-login feed — the
   original read-only view), **Users** (`components/admin/UsersPanel.jsx` — search/role-filter,
   suspend/reactivate any user except yourself), **Billboards** (`components/admin/BillboardsPanel.jsx`

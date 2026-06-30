@@ -35,6 +35,7 @@ class StoreBillboardRequest extends FormRequest
             'price_per_day' => ['required', 'integer', 'min:1'],
             'price_per_week' => ['required', 'integer', 'min:1'],
             'description' => ['nullable', 'string', 'max:2000'],
+            'available_from' => ['required', 'date', 'after_or_equal:today'],
         ];
     }
 }

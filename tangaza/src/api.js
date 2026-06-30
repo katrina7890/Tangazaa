@@ -104,6 +104,8 @@ function mapBillboard(billboard) {
     pricePerWeek: billboard.price_per_week,
     description: billboard.description,
     isActive: billboard.is_active,
+    availableFrom: billboard.available_from || null,
+    nextAvailableFrom: billboard.next_available_from || null,
     bookedRanges: billboard.booked_ranges || [],
     owner: billboard.owner || null,
   };
