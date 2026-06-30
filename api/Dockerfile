@@ -1,6 +1,8 @@
 # Laravel API container for Render (or any Docker host).
 # Apache + mod_php serving Laravel's public/ directory.
-FROM php:8.3-apache
+# Match the dev/CI PHP version (8.5) so 8.5-era syntax in the app and its locked
+# dependencies parses — an older minor (8.3) fails to boot with a syntax error.
+FROM php:8.5-apache
 
 # --- System deps + PHP extensions -------------------------------------------
 # pdo_pgsql: Postgres driver (Render's free DB) · mbstring/zip/bcmath: Laravel.
