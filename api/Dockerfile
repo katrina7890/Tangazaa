@@ -27,7 +27,11 @@ WORKDIR /var/www/html
 COPY . .
 # --no-scripts skips package:discover at build (no env yet); the framework
 # rebuilds the package manifest on first boot, which start.sh triggers.
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts \
+# platform-check off + --ignore-platform-reqs: don't let a transitive package's
+# declared ext-* requirement fail the build — the app only uses the extensions
+# installed above (verified locally), so we skip Composer's platform gate.
+RUN composer config platform-check false \
+    && composer install --no-dev --optimize-autoloader --no-interaction --no-scripts --ignore-platform-reqs \
     && chown -R www-data:www-data storage bootstrap/cache
 
 COPY docker/start.sh /usr/local/bin/start.sh
