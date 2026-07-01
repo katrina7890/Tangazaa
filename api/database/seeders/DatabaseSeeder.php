@@ -20,6 +20,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Idempotent: on hosted deploys this runs on every boot, so bail out if
+        // the demo data is already present (avoids duplicate-email crashes).
+        if (User::where('email', 'admin@tangaza.test')->exists()) {
+            return;
+        }
+
         $admin = User::factory()->admin()->create([
             'name' => 'Tangazaa Admin',
             'company_name' => 'Tangazaa',
