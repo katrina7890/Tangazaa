@@ -67,14 +67,30 @@ services:
         value: log
 
       # --- CORS / Sanctum: set to the Vercel frontend once it's deployed ---
+      # onrender.com and vercel.app are different top-level domains, and Sanctum's
+      # SPA cookie auth requires the frontend + API to share one (its JS must read
+      # the XSRF-TOKEN cookie via document.cookie, which is impossible cross-domain
+      # no matter how CORS/SameSite are configured — this is a browser cookie-jar
+      # rule, not a Laravel setting). So tangaza/vercel.json proxies /api/* and
+      # /sanctum/* to this service, making every request same-origin from the
+      # browser's point of view — that's the real fix for "login works but the
+      # dashboard never loads." Leave REACT_APP_API_URL unset in Vercel's env so
+      # the SPA calls relative paths (see tangaza/src/api.js#resolveApiBase) and
+      # hits that proxy instead of this domain directly.
+      # FRONTEND_URLS/SANCTUM_STATEFUL_DOMAINS below are still worth setting to the
+      # Vercel origin as defense-in-depth (covers someone hitting this API
+      # directly), but the proxy — not these two vars — is what makes auth work.
       # FRONTEND_URLS: full origin incl. https://   e.g. https://tangazaa.vercel.app
       - key: FRONTEND_URLS
         sync: false
       # SANCTUM_STATEFUL_DOMAINS: host only, no scheme   e.g. tangazaa.vercel.app
       - key: SANCTUM_STATEFUL_DOMAINS
         sync: false
-      # SESSION_DOMAIN: leave blank for now (host-only cookie). Set a shared parent
-      # domain (e.g. .tangazaa.com) only once both ends share one root domain.
+      # SESSION_DOMAIN: leave blank (host-only cookie) — once proxied, the cookie
+      # must be scoped to whatever host the browser actually talked to
+      # (the Vercel domain), not this one. Only switch to a shared parent domain
+      # (e.g. .tangazaa.com) if a custom domain spanning both services is set up
+      # and the proxy is removed in favor of that.
       - key: SESSION_DOMAIN
         sync: false
 

@@ -392,8 +392,20 @@ around the city rather than scattering across Kenya.
 - **On backend deploy:** `php artisan migrate --force`, then
   `php artisan config:cache route:cache view:cache event:cache`.
 - **Runtime services:** queue worker / Horizon, scheduler (`php artisan schedule:run` via cron).
-- **Environments:** ⟨dev → staging → prod⟩ — not yet defined.
-- ⟨Fill in hosting target and rollback plan once decided.⟩
+- **Environments:** local dev only, plus a live demo deploy (as of 2026-07-07): the API on
+  **Render** (`render.yaml` — Docker web service + free Postgres, blueprint-deployed), the SPA on
+  **Vercel** (`tangaza/vercel.json`, static CRA build). No formal staging tier yet.
+- **Render + Vercel are different top-level domains, which breaks Sanctum's cookie-based SPA
+  auth if called directly** (its CSRF double-submit pattern needs the SPA's JS to read the
+  `XSRF-TOKEN` cookie via `document.cookie`, which a browser will never expose across origins —
+  no CORS/SameSite setting changes that). The fix: `tangaza/vercel.json` proxies `/api/*` and
+  `/sanctum/*` to the Render API, so the browser sees everything as same-origin. This requires
+  `REACT_APP_API_URL` to be **unset** in Vercel's project env (so `api.js#resolveApiBase` falls
+  back to relative paths and hits the proxy) — don't set it to the Render URL directly, that
+  reintroduces the cross-domain cookie bug (login appears to work but the dashboard never loads,
+  since the session never comes back on the next request). See the CORS/Sanctum comment block in
+  `render.yaml` for the full explanation.
+- Rollback: redeploy the previous Render/Vercel build from their respective dashboards.
 
 ---
 
