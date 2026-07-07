@@ -163,7 +163,7 @@ export default function MapBrowsePage() {
 
       <MapControls
         theme={theme}
-        onToggleTheme={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
+        onThemeChange={setTheme}
         onZoomIn={() => mapRef.current?.zoomIn()}
         onZoomOut={() => mapRef.current?.zoomOut()}
       />
