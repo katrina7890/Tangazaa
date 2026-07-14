@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['billboard_id', 'customer_id', 'start_date', 'end_date', 'total_price', 'status'])]
+#[Fillable(['billboard_id', 'customer_id', 'contact_id', 'start_date', 'end_date', 'total_price', 'status', 'source'])]
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
@@ -24,6 +25,7 @@ class Booking extends Model
             'end_date' => 'date',
             'total_price' => 'integer',
             'status' => BookingStatus::class,
+            'source' => BookingSource::class,
         ];
     }
 
@@ -35,6 +37,11 @@ class Booking extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
     }
 
     public function payments(): HasMany

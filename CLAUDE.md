@@ -179,6 +179,44 @@ extend `detectSuspicious()` if more signals are needed.
 `role:owner,admin` / `role:customer` / `role:admin` middleware (`App\Http\Middleware\EnsureUserHasRole`,
 aliased as `role` in `bootstrap/app.php`) gates these route groups in `routes/api.php`.
 
+**Tangazaa Partner — lightweight ERP for billboard companies (as of 2026-07-14).** All endpoints
+live under `/api/partner/*` behind `role:owner,admin`; every record is scoped to the authenticated
+owner (`owner_id`), enforced by `ContactPolicy`/`ArtworkPolicy`/`WorkOrderPolicy` plus
+`Rule::exists(...)->where('owner_id', ...)` checks in the Partner FormRequests (so you can't link
+someone else's contact/billboard). Modules:
+
+- **Overview / live occupancy** — `GET /partner/overview` (`OverviewController`, invokable):
+  headline stats (billboards, occupied/vacant today, active bookings, confirmed revenue, contacts,
+  open artworks/work orders) plus a per-billboard occupancy snapshot (current confirmed booking,
+  advertiser, `next_available_from`) that powers the SPA's occupancy map.
+- **CRM** — `contacts` table (`owner_id`, name, company, email, phone, notes). CRUD at
+  `GET|POST /partner/contacts`, `PUT|DELETE /partner/contacts/{id}`; `?search=` matches
+  name/company/email/phone.
+- **Artwork pipeline** — `artworks` table (`App\Enums\ArtworkStatus`:
+  `brief → in_design → awaiting_approval → approved|rejected`; nullable `contact_id`,
+  `billboard_id`, `due_date`, `file_name` — file reference only, real uploads are a later task).
+  `GET (?status=) | POST /partner/artworks`, `PATCH|DELETE /partner/artworks/{id}`.
+- **Print/install work orders** — `work_orders` table (`WorkOrderType`:
+  printing/installation/removal/maintenance; `WorkOrderStatus`:
+  pending/scheduled/in_progress/completed/cancelled; free-text `assignee_name` — installers are
+  not platform users; `scheduled_for`, `completed_at`). `GET (?status=&type=) | POST
+  /partner/work-orders`, `PATCH|DELETE /partner/work-orders/{id}`. Setting status to `completed`
+  stamps `completed_at`; moving it back clears it (in `WorkOrderController@update`).
+- **Booking sync (offline deals)** — `bookings` gained `source` (`App\Enums\BookingSource`:
+  `app`/`offline`), nullable `contact_id`, and `customer_id` is now nullable.
+  `POST /partner/offline-bookings` (`CreateOfflineBooking` action) records a deal closed off the
+  app: created `Confirmed` immediately (blocks the dates for app customers), no payment, **no
+  30-day minimum and past start dates allowed** (the campaign may already be running) — but the
+  overlap check against confirmed bookings still applies. Optional `total_price` records the
+  negotiated amount (defaults to days × `price_per_day`). `GET /partner/bookings (?source=)`
+  lists every booking across the owner's boards, app + offline together.
+- **Notifications** — `app_notifications` table (deliberately not Laravel's `notifications`, to
+  avoid a future collision), `AppNotification` model with a static `notify()` helper. Produced in
+  `CreateBooking` (`booking.requested` → billboard owner) and `PaystackService::verify`
+  (`booking.paid` → billboard owner). Read endpoints are for **any** signed-in user (not just
+  owners): `GET /api/notifications` (last 30 + `unread_count`),
+  `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all`.
+
 ### Common commands (run from `api/`)
 
 | Task | Command |
@@ -281,8 +319,24 @@ around the city rather than scattering across Kenya.
   `utils/roles.js#dashboardPathForRole(user.role)` (owner → `/owner`, admin → `/admin`, customer →
   `/dashboard`) — the same helper sends users to the right place after login/register. The
   `Header` shows a signed-in user's initials in a **gold avatar button that opens an account
-  dropdown** (role/company line, a **Dashboard** link via `dashboardPathForRole`, and **Sign out**);
-  it closes on outside-click, Escape, or navigation. Guests see a "SIGN IN" link instead.
+  dropdown** (role/company line, a **Dashboard** link via `dashboardPathForRole`, a **Tangazaa
+  Partner** link for owner/admin, and **Sign out**); it closes on outside-click, Escape, or
+  navigation. Guests see a "SIGN IN" link instead.
+- **Tangazaa Partner (`/partner/*`, roles owner/admin, as of 2026-07-14):** the ERP workspace,
+  nested react-router routes under `components/partner/PartnerLayout.jsx` — a forest-deep sidebar
+  on desktop and a **bottom tab bar on mobile** (the installer-in-the-field view), plus a top bar
+  with `components/partner/NotificationBell.jsx` (polls `/api/notifications` every 60s, unread
+  badge, mark-one/mark-all read). `Header` treats `/partner*` as a dark-backdrop route. Pages in
+  `pages/partner/`: `PartnerOverviewPage` (stat cards + **live occupancy map** — gold marker =
+  occupied, emerald = vacant, popup shows advertiser + end date), `PartnerAvailabilityPage`
+  (board picker + read-only `AvailabilityCalendar`), `PartnerCrmPage` (client book, debounced
+  search, inline add/edit form), `PartnerArtworkPage` (status-filter chips + per-card stage
+  dropdown), `PartnerJobsPage` (print/install work orders with one-tap "next step" buttons:
+  pending → scheduled → in progress → completed, plus cancel/reopen), `PartnerSyncPage` (record
+  offline deals — billboard + CRM contact + dates + optional negotiated price — and a unified
+  app/offline bookings list with source badges). Shared primitives live in
+  `components/partner/ui.jsx`. All Partner API calls are in `api.js` under the
+  "Tangazaa Partner" section.
 - **Auth screens** (`LoginPage`/`SignupPage`) share `components/AuthLayout.jsx` — a full-bleed
   billboard backdrop (forest overlay + centred cream card). The backdrop loads an optional photo from
   `/public` (`billboard-auth.jpg` for login, `billboard-mockup.jpg` for signup) and **falls back to

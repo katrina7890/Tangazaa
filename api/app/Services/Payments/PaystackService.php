@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Payment;
 use Illuminate\Support\Str;
@@ -85,6 +86,18 @@ class PaystackService
             'paid_at' => now(),
         ]);
         $booking->update(['status' => BookingStatus::Confirmed]);
+
+        AppNotification::notify(
+            $booking->billboard->owner_id,
+            'booking.paid',
+            "Booking paid — {$booking->billboard->title}",
+            sprintf(
+                'KES %s received for %s to %s. The dates are now locked in.',
+                number_format($payment->amount),
+                $booking->start_date->format('M j, Y'),
+                $booking->end_date->format('M j, Y'),
+            ),
+        );
 
         return $payment;
     }

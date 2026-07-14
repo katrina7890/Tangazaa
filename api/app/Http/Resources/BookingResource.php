@@ -25,10 +25,17 @@ class BookingResource extends JsonResource
                 'type' => $this->billboard->type->value,
                 'price_per_week' => $this->billboard->price_per_week,
             ],
-            'customer' => $this->whenLoaded('customer', fn () => [
+            // Offline bookings have no app customer — a CRM contact instead.
+            'customer' => $this->whenLoaded('customer', fn () => $this->customer ? [
                 'name' => $this->customer->name,
                 'company_name' => $this->customer->company_name,
-            ]),
+            ] : null),
+            'contact' => $this->whenLoaded('contact', fn () => $this->contact ? [
+                'id' => $this->contact->id,
+                'name' => $this->contact->name,
+                'company' => $this->contact->company,
+            ] : null),
+            'source' => $this->source?->value ?? 'app',
             'start_date' => $this->start_date->format('Y-m-d'),
             'end_date' => $this->end_date->format('Y-m-d'),
             'total_price' => $this->total_price,

@@ -3,6 +3,7 @@
 namespace App\Actions\Booking;
 
 use App\Enums\BookingStatus;
+use App\Models\AppNotification;
 use App\Models\Billboard;
 use App\Models\Booking;
 use App\Models\User;
@@ -54,12 +55,26 @@ class CreateBooking
         // Created unconfirmed — the booking is only held once payment succeeds
         // (see App\Services\Payments\PaystackService). Until then it doesn't block
         // the dates for other customers (booked_ranges only counts Confirmed).
-        return $billboard->bookings()->create([
+        $booking = $billboard->bookings()->create([
             'customer_id' => $customer->id,
             'start_date' => $start,
             'end_date' => $end,
             'total_price' => $days * $billboard->price_per_day,
             'status' => BookingStatus::Pending,
         ]);
+
+        AppNotification::notify(
+            $billboard->owner_id,
+            'booking.requested',
+            "New booking request — {$billboard->title}",
+            sprintf(
+                '%s requested %s to %s (awaiting payment).',
+                $customer->company_name ?? $customer->name,
+                $start->format('M j, Y'),
+                $end->format('M j, Y'),
+            ),
+        );
+
+        return $booking;
     }
 }

@@ -7,6 +7,12 @@ use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillboardController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\Partner\ArtworkController;
+use App\Http\Controllers\Api\Partner\ContactController;
+use App\Http\Controllers\Api\Partner\OfflineBookingController;
+use App\Http\Controllers\Api\Partner\OverviewController;
+use App\Http\Controllers\Api\Partner\WorkOrderController;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -24,12 +30,40 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
+    // In-app notifications (any signed-in role; currently produced for owners).
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
     Route::middleware('role:owner,admin')->group(function () {
         Route::get('/my/billboards', [BillboardController::class, 'mine']);
         Route::post('/billboards', [BillboardController::class, 'store']);
         Route::put('/billboards/{billboard}', [BillboardController::class, 'update']);
         Route::delete('/billboards/{billboard}', [BillboardController::class, 'destroy']);
         Route::get('/billboards/{billboard}/bookings', [BillboardController::class, 'bookings']);
+
+        // Tangazaa Partner — the lightweight ERP for billboard companies.
+        Route::prefix('partner')->group(function () {
+            Route::get('/overview', OverviewController::class);
+
+            Route::get('/contacts', [ContactController::class, 'index']);
+            Route::post('/contacts', [ContactController::class, 'store']);
+            Route::put('/contacts/{contact}', [ContactController::class, 'update']);
+            Route::delete('/contacts/{contact}', [ContactController::class, 'destroy']);
+
+            Route::get('/artworks', [ArtworkController::class, 'index']);
+            Route::post('/artworks', [ArtworkController::class, 'store']);
+            Route::patch('/artworks/{artwork}', [ArtworkController::class, 'update']);
+            Route::delete('/artworks/{artwork}', [ArtworkController::class, 'destroy']);
+
+            Route::get('/work-orders', [WorkOrderController::class, 'index']);
+            Route::post('/work-orders', [WorkOrderController::class, 'store']);
+            Route::patch('/work-orders/{workOrder}', [WorkOrderController::class, 'update']);
+            Route::delete('/work-orders/{workOrder}', [WorkOrderController::class, 'destroy']);
+
+            Route::get('/bookings', [OfflineBookingController::class, 'index']);
+            Route::post('/offline-bookings', [OfflineBookingController::class, 'store']);
+        });
     });
 
     Route::middleware('role:customer')->group(function () {

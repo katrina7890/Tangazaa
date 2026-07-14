@@ -8,11 +8,21 @@ use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class PaymentTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** Relative dates — hardcoded ones rot as the calendar advances. */
+    private function campaignDates(): array
+    {
+        return [
+            'start_date' => Carbon::today()->addDay()->toDateString(),
+            'end_date' => Carbon::today()->addDays(30)->toDateString(),
+        ];
+    }
 
     public function test_creating_a_booking_opens_a_pending_payment_and_does_not_confirm(): void
     {
@@ -21,8 +31,7 @@ class PaymentTest extends TestCase
 
         $response = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-30',
+            ...$this->campaignDates(),
         ]);
 
         $response->assertCreated();
@@ -44,8 +53,7 @@ class PaymentTest extends TestCase
 
         $reference = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-30',
+            ...$this->campaignDates(),
         ])->json('payment.reference');
 
         $response = $this->actingAs($customer)->postJson("/api/payments/{$reference}/verify", [
@@ -69,8 +77,7 @@ class PaymentTest extends TestCase
 
         $reference = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-30',
+            ...$this->campaignDates(),
         ])->json('payment.reference');
 
         $response = $this->actingAs($customer)->postJson("/api/payments/{$reference}/verify", [
@@ -89,15 +96,14 @@ class PaymentTest extends TestCase
 
         $reference = $this->actingAs($customer)->postJson('/api/bookings', [
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-30',
+            ...$this->campaignDates(),
         ])->json('payment.reference');
 
         // Someone else's booking is confirmed for overlapping dates mid-checkout.
         Booking::factory()->create([
             'billboard_id' => $billboard->id,
-            'start_date' => '2026-07-15',
-            'end_date' => '2026-08-15',
+            'start_date' => Carbon::today()->addDays(15)->toDateString(),
+            'end_date' => Carbon::today()->addDays(45)->toDateString(),
             'status' => BookingStatus::Confirmed,
         ]);
 

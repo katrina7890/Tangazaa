@@ -58,4 +58,24 @@ class User extends Authenticatable
     {
         return $this->hasMany(Booking::class, 'customer_id');
     }
+
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class, 'owner_id');
+    }
+
+    public function artworks(): HasMany
+    {
+        return $this->hasMany(Artwork::class, 'owner_id');
+    }
+
+    public function workOrders(): HasMany
+    {
+        return $this->hasMany(WorkOrder::class, 'owner_id');
+    }
+
+    public function appNotifications(): HasMany
+    {
+        return $this->hasMany(AppNotification::class);
+    }
 }

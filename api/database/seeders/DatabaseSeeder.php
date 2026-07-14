@@ -2,12 +2,19 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ArtworkStatus;
+use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Enums\WorkOrderStatus;
+use App\Enums\WorkOrderType;
+use App\Models\Artwork;
 use App\Models\Billboard;
 use App\Models\Booking;
+use App\Models\Contact;
 use App\Models\LoginAttempt;
 use App\Models\Payment;
 use App\Models\User;
+use App\Models\WorkOrder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -95,6 +102,58 @@ class DatabaseSeeder extends Seeder
 
         // Curated, real-world Nairobi sites so the browse map is well populated.
         $this->call(NairobiBillboardSeeder::class);
+
+        // Tangazaa Partner demo data for the main owner account, so the ERP
+        // screens (CRM, artwork, work orders, sync) aren't empty on first login.
+        $contacts = Contact::factory()->count(5)->create(['owner_id' => $owner->id]);
+        $ownerBoards = $owner->billboards()->get();
+
+        if ($ownerBoards->isNotEmpty()) {
+            // An offline (walk-in) deal, so the sync screen shows both sources.
+            $offlineBoard = $ownerBoards->first();
+            Booking::create([
+                'billboard_id' => $offlineBoard->id,
+                'contact_id' => $contacts->first()->id,
+                'start_date' => now()->addMonths(4)->startOfDay(),
+                'end_date' => now()->addMonths(5)->startOfDay(),
+                'total_price' => 180000,
+                'status' => BookingStatus::Confirmed,
+                'source' => BookingSource::Offline,
+            ]);
+
+            Artwork::factory()->create([
+                'owner_id' => $owner->id,
+                'contact_id' => $contacts->first()->id,
+                'billboard_id' => $offlineBoard->id,
+                'title' => $contacts->first()->company.' — main campaign creative',
+                'status' => ArtworkStatus::InDesign,
+            ]);
+            Artwork::factory()->count(3)->create([
+                'owner_id' => $owner->id,
+                'contact_id' => $contacts->random()->id,
+            ]);
+
+            WorkOrder::factory()->create([
+                'owner_id' => $owner->id,
+                'billboard_id' => $offlineBoard->id,
+                'type' => WorkOrderType::Printing,
+                'status' => WorkOrderStatus::InProgress,
+                'assignee_name' => 'Print shop — Baba Dogo',
+            ]);
+            WorkOrder::factory()->create([
+                'owner_id' => $owner->id,
+                'billboard_id' => $ownerBoards->last()->id,
+                'type' => WorkOrderType::Installation,
+                'status' => WorkOrderStatus::Scheduled,
+                'assignee_name' => 'Kevin (installer)',
+                'scheduled_for' => now()->addDays(3)->format('Y-m-d'),
+            ]);
+            WorkOrder::factory()->completed()->create([
+                'owner_id' => $owner->id,
+                'billboard_id' => $ownerBoards->random()->id,
+                'type' => WorkOrderType::Removal,
+            ]);
+        }
 
         // Normal login history.
         foreach ([$admin, $owner, $customer] as $user) {

@@ -268,3 +268,192 @@ export async function cancelAdminBooking(id) {
   const { data } = await apiFetch(`/api/admin/bookings/${id}/cancel`, { method: 'PATCH' });
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Tangazaa Partner — the lightweight ERP for billboard companies (owner/admin).
+// ---------------------------------------------------------------------------
+
+export async function fetchPartnerOverview() {
+  const { stats, billboards } = await apiFetch('/api/partner/overview');
+  return {
+    stats: {
+      billboards: stats.billboards,
+      occupiedToday: stats.occupied_today,
+      vacantToday: stats.vacant_today,
+      activeBookings: stats.active_bookings,
+      confirmedRevenue: stats.confirmed_revenue,
+      contacts: stats.contacts,
+      openArtworks: stats.open_artworks,
+      openWorkOrders: stats.open_work_orders,
+    },
+    billboards: billboards.map((board) => ({
+      id: board.id,
+      title: board.title,
+      location: board.location,
+      lat: board.lat,
+      lng: board.lng,
+      isActive: board.is_active,
+      occupied: board.occupied,
+      currentBooking: board.current_booking
+        ? {
+            startDate: board.current_booking.start_date,
+            endDate: board.current_booking.end_date,
+            source: board.current_booking.source,
+            advertiser: board.current_booking.advertiser,
+          }
+        : null,
+      nextAvailableFrom: board.next_available_from,
+    })),
+  };
+}
+
+function mapContact(contact) {
+  return {
+    id: contact.id,
+    name: contact.name,
+    company: contact.company,
+    email: contact.email,
+    phone: contact.phone,
+    notes: contact.notes,
+    bookingsCount: contact.bookings_count ?? 0,
+    artworksCount: contact.artworks_count ?? 0,
+    createdAt: contact.created_at,
+  };
+}
+
+export async function fetchPartnerContacts(params = {}) {
+  const { data } = await apiFetch(`/api/partner/contacts${toQueryString(params)}`);
+  return data.map(mapContact);
+}
+
+export async function createPartnerContact(payload) {
+  const { data } = await apiFetch('/api/partner/contacts', { method: 'POST', body: JSON.stringify(payload) });
+  return mapContact(data);
+}
+
+export async function updatePartnerContact(id, payload) {
+  const { data } = await apiFetch(`/api/partner/contacts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  return mapContact(data);
+}
+
+export async function deletePartnerContact(id) {
+  await apiFetch(`/api/partner/contacts/${id}`, { method: 'DELETE' });
+}
+
+function mapArtwork(artwork) {
+  return {
+    id: artwork.id,
+    title: artwork.title,
+    status: artwork.status,
+    dueDate: artwork.due_date,
+    fileName: artwork.file_name,
+    notes: artwork.notes,
+    contact: artwork.contact || null,
+    billboard: artwork.billboard || null,
+    createdAt: artwork.created_at,
+  };
+}
+
+export async function fetchPartnerArtworks(params = {}) {
+  const { data } = await apiFetch(`/api/partner/artworks${toQueryString(params)}`);
+  return data.map(mapArtwork);
+}
+
+export async function createPartnerArtwork(payload) {
+  const { data } = await apiFetch('/api/partner/artworks', { method: 'POST', body: JSON.stringify(payload) });
+  return mapArtwork(data);
+}
+
+export async function updatePartnerArtwork(id, payload) {
+  const { data } = await apiFetch(`/api/partner/artworks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  return mapArtwork(data);
+}
+
+export async function deletePartnerArtwork(id) {
+  await apiFetch(`/api/partner/artworks/${id}`, { method: 'DELETE' });
+}
+
+function mapWorkOrder(order) {
+  return {
+    id: order.id,
+    type: order.type,
+    status: order.status,
+    assigneeName: order.assignee_name,
+    scheduledFor: order.scheduled_for,
+    notes: order.notes,
+    completedAt: order.completed_at,
+    billboard: order.billboard || null,
+    artwork: order.artwork || null,
+    createdAt: order.created_at,
+  };
+}
+
+export async function fetchPartnerWorkOrders(params = {}) {
+  const { data } = await apiFetch(`/api/partner/work-orders${toQueryString(params)}`);
+  return data.map(mapWorkOrder);
+}
+
+export async function createPartnerWorkOrder(payload) {
+  const { data } = await apiFetch('/api/partner/work-orders', { method: 'POST', body: JSON.stringify(payload) });
+  return mapWorkOrder(data);
+}
+
+export async function updatePartnerWorkOrder(id, payload) {
+  const { data } = await apiFetch(`/api/partner/work-orders/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  return mapWorkOrder(data);
+}
+
+export async function deletePartnerWorkOrder(id) {
+  await apiFetch(`/api/partner/work-orders/${id}`, { method: 'DELETE' });
+}
+
+function mapPartnerBooking(booking) {
+  return {
+    id: booking.id,
+    billboard: booking.billboard,
+    customer: booking.customer || null,
+    contact: booking.contact || null,
+    startDate: booking.start_date,
+    endDate: booking.end_date,
+    totalPrice: booking.total_price,
+    status: booking.status,
+    source: booking.source || 'app',
+    payment: booking.payment ? mapPayment(booking.payment) : null,
+    createdAt: booking.created_at,
+  };
+}
+
+export async function fetchPartnerBookings(params = {}) {
+  const { data } = await apiFetch(`/api/partner/bookings${toQueryString(params)}`);
+  return data.map(mapPartnerBooking);
+}
+
+export async function createOfflineBooking(payload) {
+  const { data } = await apiFetch('/api/partner/offline-bookings', { method: 'POST', body: JSON.stringify(payload) });
+  return mapPartnerBooking(data);
+}
+
+// ---- In-app notifications (any signed-in user) ----
+
+export async function fetchNotifications() {
+  const response = await apiFetch('/api/notifications');
+  return {
+    items: response.data.map((notification) => ({
+      id: notification.id,
+      type: notification.type,
+      title: notification.title,
+      body: notification.body,
+      readAt: notification.read_at,
+      createdAt: notification.created_at,
+    })),
+    unreadCount: response.unread_count ?? 0,
+  };
+}
+
+export async function markNotificationRead(id) {
+  await apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+}
+
+export async function markAllNotificationsRead() {
+  await apiFetch('/api/notifications/read-all', { method: 'PATCH' });
+}
