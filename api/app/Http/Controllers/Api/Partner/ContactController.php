@@ -16,7 +16,7 @@ class ContactController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $contacts = $request->user()->contacts()
+        $contacts = $request->user()->partnerOwner()->contacts()
             ->withCount(['bookings', 'artworks'])
             ->when($request->filled('search'), function ($query) use ($request) {
                 $term = '%'.$request->string('search').'%';
@@ -34,7 +34,7 @@ class ContactController extends Controller
 
     public function store(StoreContactRequest $request): JsonResponse
     {
-        $contact = $request->user()->contacts()->create($request->validated());
+        $contact = $request->user()->partnerOwner()->contacts()->create($request->validated());
 
         return (new ContactResource($contact))->response()->setStatusCode(201);
     }

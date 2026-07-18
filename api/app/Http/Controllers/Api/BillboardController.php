@@ -36,7 +36,10 @@ class BillboardController extends Controller
 
     public function mine(Request $request): AnonymousResourceCollection
     {
+        // partnerOwner(): staff read their employer's inventory (writes stay
+        // owner/admin-only at the route level).
         $billboards = $request->user()
+            ->partnerOwner()
             ->billboards()
             ->with(['bookings' => fn ($query) => $query->where('status', BookingStatus::Confirmed)])
             ->latest()

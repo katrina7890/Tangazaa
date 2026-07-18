@@ -7,6 +7,7 @@ import {
   fetchPartnerContacts,
 } from '../../api';
 import PaymentStatusBadge from '../../components/PaymentStatusBadge';
+import BookingUpdatesModal from '../../components/partner/BookingUpdatesModal';
 import {
   Badge,
   EmptyState,
@@ -36,6 +37,7 @@ export default function PartnerSyncPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [progressBooking, setProgressBooking] = useState(null);
 
   useEffect(() => {
     Promise.all([fetchMyBillboards(), fetchPartnerContacts()])
@@ -244,11 +246,26 @@ export default function PartnerSyncPage() {
                     {advertiser} · {formatDisplayDate(booking.startDate)} → {formatDisplayDate(booking.endDate)}
                   </p>
                 </div>
-                <p className="shrink-0 font-semibold text-gold-dark">{formatKES(booking.totalPrice)}</p>
+                <div className="flex shrink-0 items-center gap-3">
+                  <p className="font-semibold text-gold-dark">{formatKES(booking.totalPrice)}</p>
+                  {booking.status !== 'cancelled' && (
+                    <button
+                      type="button"
+                      onClick={() => setProgressBooking(booking)}
+                      className="rounded-full border border-forest/20 bg-forest/5 px-3.5 py-1.5 text-xs font-bold text-forest transition hover:border-forest/40 hover:bg-forest/10"
+                    >
+                      Progress
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {progressBooking && (
+        <BookingUpdatesModal booking={progressBooking} onClose={() => setProgressBooking(null)} />
       )}
     </div>
   );

@@ -24,12 +24,12 @@ class StoreWorkOrderRequest extends FormRequest
             'billboard_id' => [
                 'required',
                 'integer',
-                Rule::exists('billboards', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('billboards', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             'artwork_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('artworks', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('artworks', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             'type' => ['required', Rule::enum(WorkOrderType::class)],
             'status' => ['nullable', Rule::enum(WorkOrderStatus::class)],

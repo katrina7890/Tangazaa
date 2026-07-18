@@ -19,7 +19,9 @@ class OverviewController extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $user = $request->user();
+        // Staff operate in their employer's workspace; the money stays the owner's.
+        $user = $request->user()->partnerOwner();
+        $isStaff = $request->user()->isStaff();
         $today = now()->startOfDay();
 
         $billboards = $user->billboards()
@@ -66,7 +68,8 @@ class OverviewController extends Controller
                 'active_bookings' => $allConfirmed
                     ->filter(fn (Booking $booking) => $booking->end_date >= $today)
                     ->count(),
-                'confirmed_revenue' => $allConfirmed->sum->total_price,
+                // Owner-only: employees see operations, not the company's money.
+                'confirmed_revenue' => $isStaff ? null : $allConfirmed->sum->total_price,
                 'contacts' => $user->contacts()->count(),
                 'open_artworks' => $user->artworks()
                     ->whereNotIn('status', [ArtworkStatus::Approved, ArtworkStatus::Rejected])

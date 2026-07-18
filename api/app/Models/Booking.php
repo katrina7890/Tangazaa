@@ -57,4 +57,15 @@ class Booking extends Model
     {
         return $this->hasOne(Payment::class)->latestOfMany();
     }
+
+    /** Campaign progress updates posted by the billboard company. */
+    public function updates(): HasMany
+    {
+        return $this->hasMany(BookingUpdate::class);
+    }
+
+    public function latestUpdate(): HasOne
+    {
+        return $this->hasOne(BookingUpdate::class)->latestOfMany();
+    }
 }

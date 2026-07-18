@@ -10,7 +10,10 @@ export default function Header() {
   // These routes have a dark forest backdrop at the top, so the wordmark needs to be light there.
   const darkBackdropRoutes = ['/', '/login', '/signup', '/dashboard', '/owner', '/admin'];
   const onDarkBackdrop =
-    darkBackdropRoutes.includes(location.pathname) || location.pathname.startsWith('/partner');
+    darkBackdropRoutes.includes(location.pathname) ||
+    location.pathname.startsWith('/partner') ||
+    // Campaign progress pages (/bookings/:id/progress) open on the forest hero too.
+    location.pathname.startsWith('/bookings/');
 
   // Fade a solid forest backdrop in once the user scrolls past the top, so the
   // transparent header stays readable over the cream sections further down.
@@ -134,13 +137,26 @@ export default function Header() {
           )}
         </div>
       ) : (
-        <Link
-          to="/login"
-          className="flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-forest shadow-sm transition hover:bg-gold-soft hover:shadow-md"
-        >
-          <UserIcon />
-          SIGN IN
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {/* Separate door for billboard company teams — owners and their staff. */}
+          <Link
+            to="/partner/login"
+            className={`rounded-full border px-4 py-2.5 text-sm font-bold transition ${
+              lightWordmark
+                ? 'border-cream/40 text-cream hover:border-gold hover:text-gold'
+                : 'border-forest/30 text-forest hover:border-gold-dark hover:text-gold-dark'
+            }`}
+          >
+            PARTNER
+          </Link>
+          <Link
+            to="/login"
+            className="flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-forest shadow-sm transition hover:bg-gold-soft hover:shadow-md"
+          >
+            <UserIcon />
+            SIGN IN
+          </Link>
+        </div>
       )}
     </header>
   );

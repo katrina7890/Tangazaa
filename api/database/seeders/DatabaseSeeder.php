@@ -5,11 +5,14 @@ namespace Database\Seeders;
 use App\Enums\ArtworkStatus;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Enums\CampaignStage;
+use App\Enums\ClientReaction;
 use App\Enums\WorkOrderStatus;
 use App\Enums\WorkOrderType;
 use App\Models\Artwork;
 use App\Models\Billboard;
 use App\Models\Booking;
+use App\Models\BookingUpdate;
 use App\Models\Contact;
 use App\Models\LoginAttempt;
 use App\Models\Payment;
@@ -59,6 +62,14 @@ class DatabaseSeeder extends Seeder
             'name' => 'Jane Customer',
             'company_name' => 'Acme Ads',
             'email' => 'customer@tangaza.test',
+            'password' => 'password',
+        ]);
+
+        // An employee of the demo owner's company — logs into Tangazaa Partner
+        // with their own credentials (never the owner's).
+        User::factory()->staffOf($owner)->create([
+            'name' => 'Sam Staff',
+            'email' => 'staff@tangaza.test',
             'password' => 'password',
         ]);
 
@@ -152,6 +163,60 @@ class DatabaseSeeder extends Seeder
                 'owner_id' => $owner->id,
                 'billboard_id' => $ownerBoards->random()->id,
                 'type' => WorkOrderType::Removal,
+            ]);
+
+            // A live campaign for the demo customer with a Glovo-style progress
+            // timeline already underway, so "Track progress" tells a story on
+            // first login — ending on an unanswered go-ahead question so the
+            // "action needed" nudge shows too.
+            $progressBoard = $ownerBoards->last();
+            $progressBooking = Booking::create([
+                'billboard_id' => $progressBoard->id,
+                'customer_id' => $customer->id,
+                'start_date' => now()->subDays(10)->startOfDay(),
+                'end_date' => now()->addDays(50)->startOfDay(),
+                'total_price' => 240000,
+                'status' => BookingStatus::Confirmed,
+            ]);
+            Payment::factory()->paid()->create([
+                'booking_id' => $progressBooking->id,
+                'amount' => $progressBooking->total_price,
+                'email' => $customer->email,
+            ]);
+
+            BookingUpdate::factory()->create([
+                'booking_id' => $progressBooking->id,
+                'user_id' => $owner->id,
+                'stage' => CampaignStage::AgentContact,
+                'message' => 'Karibu! I\'m your account manager for this campaign — I\'ll keep you posted here from artwork to installation.',
+                'created_at' => now()->subDays(9),
+                'updated_at' => now()->subDays(9),
+            ]);
+            BookingUpdate::factory()->create([
+                'booking_id' => $progressBooking->id,
+                'user_id' => $owner->id,
+                'stage' => CampaignStage::Artwork,
+                'message' => 'Your creative is in design — first layout draft coming your way shortly.',
+                'created_at' => now()->subDays(7),
+                'updated_at' => now()->subDays(7),
+            ]);
+            BookingUpdate::factory()->create([
+                'booking_id' => $progressBooking->id,
+                'user_id' => $owner->id,
+                'stage' => CampaignStage::Artwork,
+                'message' => 'Final artwork ready: 12m × 8m layout in your new brand colours.',
+                'client_reaction' => ClientReaction::Liked,
+                'client_comment' => 'Looks fantastic — exactly the vibe we wanted.',
+                'created_at' => now()->subDays(5),
+                'updated_at' => now()->subDays(4),
+            ]);
+            BookingUpdate::factory()->needsApproval()->create([
+                'booking_id' => $progressBooking->id,
+                'user_id' => $owner->id,
+                'stage' => CampaignStage::Production,
+                'message' => 'The artwork is locked. Should we go ahead and print + build your billboard?',
+                'created_at' => now()->subDays(2),
+                'updated_at' => now()->subDays(2),
             ]);
         }
 

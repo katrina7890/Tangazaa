@@ -5,6 +5,7 @@ import BillboardImage from '../components/BillboardImage';
 import DashboardHero from '../components/DashboardHero';
 import PaymentStatusBadge from '../components/PaymentStatusBadge';
 import PaymentModal from '../components/payments/PaymentModal';
+import { stageLabel } from '../components/progress/stages';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
 import { billboardTypeLabel } from '../data/billboardTypes';
 import { cancelMyBooking, fetchMyBookings, initializePayment } from '../api';
@@ -186,6 +187,8 @@ function BookingCard({ booking, cancelling, paying, onCancel, onPay }) {
   const { billboard } = booking;
   const cancellable = booking.status !== 'cancelled';
   const payable = booking.status === 'pending';
+  const trackable = booking.status !== 'cancelled';
+  const actionNeeded = booking.pendingApprovals > 0;
 
   return (
     <div className="group overflow-hidden rounded-3xl border border-sand bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
@@ -215,6 +218,29 @@ function BookingCard({ booking, cancelling, paying, onCancel, onPay }) {
         </dl>
 
         <div className="mt-5 space-y-2">
+          {trackable && (
+            <Link
+              to={`/bookings/${booking.id}/progress`}
+              className={`relative block w-full rounded-full px-4 py-2.5 text-center text-sm font-bold transition ${
+                actionNeeded
+                  ? 'bg-forest text-cream hover:bg-forest-soft'
+                  : 'border border-forest/20 bg-forest/5 text-forest hover:border-forest/40 hover:bg-forest/10'
+              }`}
+            >
+              Track progress
+              {booking.latestUpdate && !actionNeeded && (
+                <span className="ml-2 text-xs font-medium opacity-70">
+                  · {stageLabel(booking.latestUpdate.stage)}
+                </span>
+              )}
+              {actionNeeded && (
+                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-forest">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-forest" />
+                  Action needed
+                </span>
+              )}
+            </Link>
+          )}
           {payable && (
             <button
               type="button"

@@ -22,12 +22,12 @@ class StoreOfflineBookingRequest extends FormRequest
             'billboard_id' => [
                 'required',
                 'integer',
-                Rule::exists('billboards', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('billboards', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             'contact_id' => [
                 'required',
                 'integer',
-                Rule::exists('contacts', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('contacts', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             // Offline deals may already be running, so a past start date is fine.
             'start_date' => ['required', 'date'],

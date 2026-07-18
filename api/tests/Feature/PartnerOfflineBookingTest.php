@@ -116,7 +116,13 @@ class PartnerOfflineBookingTest extends TestCase
         $billboard = Billboard::factory()->create(['owner_id' => $owner->id]);
         $contact = Contact::factory()->create(['owner_id' => $owner->id]);
 
-        Booking::factory()->create(['billboard_id' => $billboard->id]); // app booking
+        // App booking with pinned dates so it can never overlap the offline one
+        // below (the factory's random dates made this flaky).
+        Booking::factory()->create([
+            'billboard_id' => $billboard->id,
+            'start_date' => Carbon::today()->addDays(5),
+            'end_date' => Carbon::today()->addDays(40),
+        ]);
         $this->actingAs($owner)->postJson('/api/partner/offline-bookings', [
             'billboard_id' => $billboard->id,
             'contact_id' => $contact->id,

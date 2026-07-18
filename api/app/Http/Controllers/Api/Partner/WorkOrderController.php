@@ -18,7 +18,7 @@ class WorkOrderController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $workOrders = $request->user()->workOrders()
+        $workOrders = $request->user()->partnerOwner()->workOrders()
             ->with(['billboard', 'artwork'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->when($request->filled('type'), fn ($query) => $query->where('type', $request->string('type')))
@@ -36,7 +36,7 @@ class WorkOrderController extends Controller
         $data = $request->validated();
         $data['status'] = $data['status'] ?? WorkOrderStatus::Pending->value;
 
-        $workOrder = $request->user()->workOrders()->create($data);
+        $workOrder = $request->user()->partnerOwner()->workOrders()->create($data);
 
         return (new WorkOrderResource($workOrder->load(['billboard', 'artwork'])))
             ->response()

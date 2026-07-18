@@ -9,11 +9,12 @@ class WorkOrderPolicy
 {
     public function update(User $user, WorkOrder $workOrder): bool
     {
-        return $user->isAdmin() || $user->id === $workOrder->owner_id;
+        // partnerOwnerId lets staff act on their employer's records.
+        return $user->isAdmin() || $user->partnerOwnerId() === $workOrder->owner_id;
     }
 
     public function delete(User $user, WorkOrder $workOrder): bool
     {
-        return $user->isAdmin() || $user->id === $workOrder->owner_id;
+        return $user->isAdmin() || $user->partnerOwnerId() === $workOrder->owner_id;
     }
 }

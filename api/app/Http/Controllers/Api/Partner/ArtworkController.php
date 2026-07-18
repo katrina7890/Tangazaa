@@ -18,7 +18,7 @@ class ArtworkController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $artworks = $request->user()->artworks()
+        $artworks = $request->user()->partnerOwner()->artworks()
             ->with(['contact', 'billboard'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->latest()
@@ -34,7 +34,7 @@ class ArtworkController extends Controller
         $data = $request->validated();
         $data['status'] = $data['status'] ?? ArtworkStatus::Brief->value;
 
-        $artwork = $request->user()->artworks()->create($data);
+        $artwork = $request->user()->partnerOwner()->artworks()->create($data);
 
         return (new ArtworkResource($artwork->load(['contact', 'billboard'])))
             ->response()

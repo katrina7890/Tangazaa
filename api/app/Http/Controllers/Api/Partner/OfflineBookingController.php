@@ -22,7 +22,7 @@ class OfflineBookingController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $bookings = Booking::query()
-            ->whereIn('billboard_id', $request->user()->billboards()->select('id'))
+            ->whereIn('billboard_id', $request->user()->partnerOwner()->billboards()->select('id'))
             ->with(['billboard', 'customer', 'contact', 'latestPayment'])
             ->when($request->filled('source'), fn ($query) => $query->where('source', $request->string('source')))
             ->latest('start_date')

@@ -59,4 +59,14 @@ class UserFactory extends Factory
             'role' => UserRole::Admin,
         ]);
     }
+
+    /** A staff account working for the given owner's billboard company. */
+    public function staffOf(User $owner): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::Staff,
+            'employer_id' => $owner->id,
+            'company_name' => $owner->company_name,
+        ]);
+    }
 }

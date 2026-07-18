@@ -45,6 +45,14 @@ class BookingResource extends JsonResource
                 'status' => $this->latestPayment->status->value,
                 'amount' => $this->latestPayment->amount,
             ] : null),
+            // Campaign-progress summary for the dashboard card (full timeline
+            // comes from /bookings/{id}/updates).
+            'updates_count' => $this->whenCounted('updates'),
+            'pending_approvals' => $this->whenCounted('pending_approvals'),
+            'latest_update' => $this->whenLoaded('latestUpdate', fn () => $this->latestUpdate ? [
+                'stage' => $this->latestUpdate->stage->value,
+                'created_at' => $this->latestUpdate->created_at->toIso8601String(),
+            ] : null),
             'created_at' => $this->created_at->toIso8601String(),
         ];
     }

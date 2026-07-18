@@ -5,6 +5,7 @@ import PartnerLayout from './components/partner/PartnerLayout';
 import { AuthProvider } from './context/AuthContext';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import BillboardDetailPage from './pages/BillboardDetailPage';
+import BookingProgressPage from './pages/BookingProgressPage';
 import CustomerDashboardPage from './pages/CustomerDashboardPage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -15,8 +16,10 @@ import PartnerArtworkPage from './pages/partner/PartnerArtworkPage';
 import PartnerAvailabilityPage from './pages/partner/PartnerAvailabilityPage';
 import PartnerCrmPage from './pages/partner/PartnerCrmPage';
 import PartnerJobsPage from './pages/partner/PartnerJobsPage';
+import PartnerLoginPage from './pages/partner/PartnerLoginPage';
 import PartnerOverviewPage from './pages/partner/PartnerOverviewPage';
 import PartnerSyncPage from './pages/partner/PartnerSyncPage';
+import PartnerTeamPage from './pages/partner/PartnerTeamPage';
 
 function App() {
   return (
@@ -40,6 +43,14 @@ function App() {
               }
             />
             <Route
+              path="/bookings/:id/progress"
+              element={
+                <RequireRole roles={['customer']}>
+                  <BookingProgressPage />
+                </RequireRole>
+              }
+            />
+            <Route
               path="/owner"
               element={
                 <RequireRole roles={['owner', 'admin']}>
@@ -55,11 +66,14 @@ function App() {
                 </RequireRole>
               }
             />
-            {/* Tangazaa Partner — the billboard company's ERP workspace. */}
+            {/* Tangazaa Partner — the billboard company's ERP workspace.
+                Staff accounts (created by their owner) share it; the Team page
+                and the owner dashboard stay owner-only. */}
+            <Route path="/partner/login" element={<PartnerLoginPage />} />
             <Route
               path="/partner"
               element={
-                <RequireRole roles={['owner', 'admin']}>
+                <RequireRole roles={['owner', 'admin', 'staff']} loginPath="/partner/login">
                   <PartnerLayout />
                 </RequireRole>
               }
@@ -70,6 +84,14 @@ function App() {
               <Route path="artwork" element={<PartnerArtworkPage />} />
               <Route path="jobs" element={<PartnerJobsPage />} />
               <Route path="sync" element={<PartnerSyncPage />} />
+              <Route
+                path="team"
+                element={
+                  <RequireRole roles={['owner', 'admin']} loginPath="/partner/login">
+                    <PartnerTeamPage />
+                  </RequireRole>
+                }
+              />
             </Route>
           </Routes>
         </div>

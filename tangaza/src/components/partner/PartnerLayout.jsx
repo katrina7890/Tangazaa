@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { to: '/partner/artwork', label: 'Artwork', icon: PaletteIcon },
   { to: '/partner/jobs', label: 'Jobs', icon: WrenchIcon },
   { to: '/partner/sync', label: 'Sync', icon: SyncIcon },
+  // Team is owner-only: staff can't mint or remove logins.
+  { to: '/partner/team', label: 'Team', icon: TeamIcon, ownerOnly: true },
 ];
 
 const PAGE_TITLES = {
@@ -18,6 +20,7 @@ const PAGE_TITLES = {
   '/partner/artwork': 'Artwork studio',
   '/partner/jobs': 'Print & install jobs',
   '/partner/sync': 'Booking sync',
+  '/partner/team': 'Team accounts',
 };
 
 /**
@@ -29,6 +32,7 @@ export default function PartnerLayout() {
   const { user } = useAuth();
   const location = useLocation();
   const title = PAGE_TITLES[location.pathname] || 'Tangazaa Partner';
+  const navItems = NAV_ITEMS.filter((item) => !item.ownerOnly || user?.role !== 'staff');
 
   const navLinkClass = ({ isActive }) =>
     `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
@@ -46,7 +50,7 @@ export default function PartnerLayout() {
           <p className="mt-1 truncate text-xs text-cream/60">{user?.company_name || user?.name}</p>
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {NAV_ITEMS.map(({ to, end, label, icon: Icon }) => (
+          {navItems.map(({ to, end, label, icon: Icon }) => (
             <NavLink key={to} to={to} end={end} className={navLinkClass}>
               <Icon />
               {label}
@@ -78,7 +82,7 @@ export default function PartnerLayout() {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-[900] flex justify-around border-t border-white/10 bg-forest-deep/95 px-1 py-2 backdrop-blur lg:hidden">
-        {NAV_ITEMS.map(({ to, end, label, icon: Icon }) => (
+        {navItems.map(({ to, end, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -158,6 +162,16 @@ function WrenchIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function TeamIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="12" cy="7.5" r="3.5" />
+      <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" strokeLinecap="round" />
+      <path d="M17.5 3.6a3.5 3.5 0 0 1 0 6.9" strokeLinecap="round" />
     </svg>
   );
 }

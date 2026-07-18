@@ -30,7 +30,10 @@ export default function PartnerOverviewPage() {
     { label: 'Occupied today', value: stats.occupiedToday, accent: 'text-gold-dark' },
     { label: 'Vacant today', value: stats.vacantToday, accent: 'text-emerald-600' },
     { label: 'Active bookings', value: stats.activeBookings },
-    { label: 'Confirmed revenue', value: formatKES(stats.confirmedRevenue) },
+    // The backend omits revenue for staff accounts — owner-only information.
+    ...(stats.confirmedRevenue != null
+      ? [{ label: 'Confirmed revenue', value: formatKES(stats.confirmedRevenue) }]
+      : []),
     { label: 'Clients', value: stats.contacts, to: '/partner/crm' },
     { label: 'Open artwork', value: stats.openArtworks, to: '/partner/artwork' },
     { label: 'Open jobs', value: stats.openWorkOrders, to: '/partner/jobs' },

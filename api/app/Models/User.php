@@ -8,11 +8,12 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'company_name', 'email', 'password', 'role', 'is_suspended'])]
+#[Fillable(['name', 'company_name', 'email', 'password', 'role', 'is_suspended', 'employer_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -47,6 +48,36 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role === UserRole::Staff;
+    }
+
+    /** The owner whose company a staff account works for. */
+    public function employer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'employer_id');
+    }
+
+    public function staffMembers(): HasMany
+    {
+        return $this->hasMany(User::class, 'employer_id');
+    }
+
+    /**
+     * The user whose Partner workspace this account operates in: staff act on
+     * their employer's data, everyone else on their own.
+     */
+    public function partnerOwner(): User
+    {
+        return $this->isStaff() && $this->employer ? $this->employer : $this;
+    }
+
+    public function partnerOwnerId(): int
+    {
+        return $this->isStaff() ? ($this->employer_id ?? $this->id) : $this->id;
     }
 
     public function billboards(): HasMany

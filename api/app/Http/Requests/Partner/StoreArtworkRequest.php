@@ -25,12 +25,12 @@ class StoreArtworkRequest extends FormRequest
             'contact_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('contacts', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('contacts', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             'billboard_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('billboards', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('billboards', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             'status' => ['nullable', Rule::enum(ArtworkStatus::class)],
             'due_date' => ['nullable', 'date'],

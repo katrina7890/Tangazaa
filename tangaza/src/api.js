@@ -29,7 +29,11 @@ export async function apiFetch(path, options = {}, _retried = false) {
   };
 
   if (method !== 'GET' && method !== 'HEAD') {
-    headers['Content-Type'] = 'application/json';
+    // FormData bodies (photo uploads) must set their own multipart boundary —
+    // forcing JSON here would break the upload.
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
     headers['X-XSRF-TOKEN'] = getCookie('XSRF-TOKEN');
   }
 
@@ -200,6 +204,11 @@ function mapBooking(booking) {
     totalPrice: booking.total_price,
     status: booking.status,
     payment: booking.payment ? mapPayment(booking.payment) : null,
+    updatesCount: booking.updates_count ?? 0,
+    pendingApprovals: booking.pending_approvals ?? 0,
+    latestUpdate: booking.latest_update
+      ? { stage: booking.latest_update.stage, createdAt: booking.latest_update.created_at }
+      : null,
     createdAt: booking.created_at,
   };
 }
@@ -212,6 +221,36 @@ export async function fetchMyBookings() {
 export async function cancelMyBooking(id) {
   const { data } = await apiFetch(`/api/bookings/${id}/cancel`, { method: 'PATCH' });
   return mapBooking(data);
+}
+
+// ---- Campaign progress tracker (Glovo-style delivery timeline per booking) ----
+
+function mapBookingUpdate(update) {
+  return {
+    id: update.id,
+    stage: update.stage,
+    message: update.message,
+    photos: update.photos || [],
+    requiresApproval: update.requires_approval,
+    clientReaction: update.client_reaction,
+    clientComment: update.client_comment,
+    author: update.author || null,
+    createdAt: update.created_at,
+  };
+}
+
+export async function fetchBookingProgress(bookingId) {
+  const { data } = await apiFetch(`/api/bookings/${bookingId}/updates`);
+  return data.map(mapBookingUpdate);
+}
+
+// reaction: 'approved' | 'liked' | 'changes_requested' (+ optional comment).
+export async function reactToBookingUpdate(updateId, payload) {
+  const { data } = await apiFetch(`/api/booking-updates/${updateId}/react`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return mapBookingUpdate(data);
 }
 
 export async function fetchAdminStats() {
@@ -431,6 +470,57 @@ export async function fetchPartnerBookings(params = {}) {
 export async function createOfflineBooking(payload) {
   const { data } = await apiFetch('/api/partner/offline-bookings', { method: 'POST', body: JSON.stringify(payload) });
   return mapPartnerBooking(data);
+}
+
+// ---- Campaign progress updates (partner side: post the Glovo-style timeline) ----
+
+export async function fetchPartnerBookingUpdates(bookingId) {
+  const { data } = await apiFetch(`/api/partner/bookings/${bookingId}/updates`);
+  return data.map(mapBookingUpdate);
+}
+
+export async function createPartnerBookingUpdate(bookingId, { stage, message, requiresApproval, photos }) {
+  const form = new FormData();
+  form.append('stage', stage);
+  if (message) form.append('message', message);
+  form.append('requires_approval', requiresApproval ? '1' : '0');
+  (photos || []).forEach((file) => form.append('photos[]', file));
+
+  const { data } = await apiFetch(`/api/partner/bookings/${bookingId}/updates`, {
+    method: 'POST',
+    body: form,
+  });
+  return mapBookingUpdate(data);
+}
+
+export async function deletePartnerBookingUpdate(updateId) {
+  await apiFetch(`/api/partner/booking-updates/${updateId}`, { method: 'DELETE' });
+}
+
+// ---- Team management (owner creates staff logins; staff never self-register) ----
+
+function mapStaffMember(member) {
+  return {
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    isSuspended: member.is_suspended,
+    createdAt: member.created_at,
+  };
+}
+
+export async function fetchPartnerTeam() {
+  const { data } = await apiFetch('/api/partner/team');
+  return data.map(mapStaffMember);
+}
+
+export async function createPartnerStaff(payload) {
+  const { data } = await apiFetch('/api/partner/team', { method: 'POST', body: JSON.stringify(payload) });
+  return mapStaffMember(data);
+}
+
+export async function deletePartnerStaff(id) {
+  await apiFetch(`/api/partner/team/${id}`, { method: 'DELETE' });
 }
 
 // ---- In-app notifications (any signed-in user) ----

@@ -24,7 +24,7 @@ class UpdateWorkOrderRequest extends FormRequest
             'artwork_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('artworks', 'id')->where('owner_id', $this->user()->id),
+                Rule::exists('artworks', 'id')->where('owner_id', $this->user()->partnerOwnerId()),
             ],
             'type' => ['sometimes', Rule::enum(WorkOrderType::class)],
             'status' => ['sometimes', Rule::enum(WorkOrderStatus::class)],

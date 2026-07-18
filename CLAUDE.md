@@ -12,8 +12,12 @@ current — it's the single source of truth for how we build this app.
   check availability and pricing to book a billboard for a period of time. Minimum campaign length
   is 30 days (`MIN_CAMPAIGN_DAYS` in `tangaza/src/utils/availability.js`).
 - **User roles:** `customer` (books billboards, registers a company), `owner` (lists billboards,
-  registers a company), `admin` (platform staff — not self-registrable, seed/tinker only). Stored
-  as `App\Enums\UserRole` on the backend; role is chosen via a toggle on the signup form.
+  registers a company), `admin` (platform staff — not self-registrable, seed/tinker only), and
+  `staff` (as of 2026-07-14 — an employee of a billboard company, created by their owner from the
+  Partner **Team** page, never self-registrable; `users.employer_id` points at the owner, and the
+  account only opens the Tangazaa Partner workspace — not the owner dashboard, not the owner's
+  revenue). Stored as `App\Enums\UserRole` on the backend; role is chosen via a toggle on the
+  signup form (customer/owner only).
 - **Billboards and bookings are real backend data** (not mock) as of 2026-06-16 — `App\Models\Billboard`
   (owned by an `owner`) and `App\Models\Booking` (made by a `customer`). Bookings are
   **pending-until-paid** through a simulated Paystack gateway (`App\Models\Payment`, added
@@ -180,10 +184,17 @@ extend `detectSuspicious()` if more signals are needed.
 aliased as `role` in `bootstrap/app.php`) gates these route groups in `routes/api.php`.
 
 **Tangazaa Partner — lightweight ERP for billboard companies (as of 2026-07-14).** All endpoints
-live under `/api/partner/*` behind `role:owner,admin`; every record is scoped to the authenticated
-owner (`owner_id`), enforced by `ContactPolicy`/`ArtworkPolicy`/`WorkOrderPolicy` plus
-`Rule::exists(...)->where('owner_id', ...)` checks in the Partner FormRequests (so you can't link
-someone else's contact/billboard). Modules:
+live under `/api/partner/*` behind `role:owner,admin,staff`; every record is scoped to the
+**workspace owner** via `User::partnerOwner()`/`partnerOwnerId()` (staff → their employer,
+everyone else → themselves), enforced by `ContactPolicy`/`ArtworkPolicy`/`WorkOrderPolicy` plus
+`Rule::exists(...)->where('owner_id', $this->user()->partnerOwnerId())` checks in the Partner
+FormRequests (so you can't link another company's contact/billboard). Staff boundaries:
+`GET /my/billboards` is readable by staff (returns the employer's inventory) but billboard
+create/update/delete stays `role:owner,admin`; the overview returns `confirmed_revenue: null`
+for staff (money is owner-only); and **team management** (`GET|POST /partner/team`,
+`DELETE /partner/team/{member}` — `TeamController`, creates `staff` users with the owner's
+`company_name`) is `role:owner,admin` only. An owner can only delete staff whose
+`employer_id` is theirs. Modules:
 
 - **Overview / live occupancy** — `GET /partner/overview` (`OverviewController`, invokable):
   headline stats (billboards, occupied/vacant today, active bookings, confirmed revenue, contacts,
@@ -212,10 +223,28 @@ someone else's contact/billboard). Modules:
   lists every booking across the owner's boards, app + offline together.
 - **Notifications** — `app_notifications` table (deliberately not Laravel's `notifications`, to
   avoid a future collision), `AppNotification` model with a static `notify()` helper. Produced in
-  `CreateBooking` (`booking.requested` → billboard owner) and `PaystackService::verify`
-  (`booking.paid` → billboard owner). Read endpoints are for **any** signed-in user (not just
+  `CreateBooking` (`booking.requested` → billboard owner), `PaystackService::verify`
+  (`booking.paid` → billboard owner), and the campaign progress tracker (`campaign.update` →
+  customer, `campaign.reaction` → owner). Read endpoints are for **any** signed-in user (not just
   owners): `GET /api/notifications` (last 30 + `unread_count`),
   `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all`.
+- **Campaign progress tracker (as of 2026-07-17)** — a Glovo-style delivery timeline per booking.
+  `booking_updates` table (`booking_id`, `user_id` author, `stage` = `App\Enums\CampaignStage`:
+  `agent_contact → artwork → production → installation`, nullable `message`, `photos` JSON array
+  of **public-disk paths** (real uploads — `photos[]` multipart, ≤4 images ≤4MB, needs
+  `php artisan storage:link`; the resource returns absolute `APP_URL/storage/...` URLs, and note
+  Render's disk is ephemeral so demo photos vanish on redeploy), `requires_approval` bool
+  ("should we go ahead and build?"), `client_reaction` = `App\Enums\ClientReaction`
+  (`approved`/`liked`/`changes_requested`) + `client_comment`). Partner side
+  (`Partner\BookingUpdateController`, scoped via `BookingUpdatePolicy` → `partnerOwnerId`):
+  `GET|POST /partner/bookings/{id}/updates`, `DELETE /partner/booking-updates/{id}` (deletes
+  stored photos too). Customer side (in `BookingController`): `GET /bookings/{id}/updates` and
+  `PATCH /booking-updates/{id}/react` — `approved` is only valid on `requires_approval` updates,
+  `liked` only on non-approval ones (`changes_requested` works on both). An update with a message
+  *or* photos is valid; both missing is a 422. `GET /my/bookings` now also returns
+  `updates_count`, `pending_approvals` (unanswered go-aheads) and `latest_update` for the
+  dashboard card badge. `DatabaseSeeder` seeds a mid-flight demo timeline (booking for
+  `customer@tangaza.test` ending on an unanswered production go-ahead).
 
 ### Common commands (run from `api/`)
 
@@ -236,8 +265,9 @@ someone else's contact/billboard). Modules:
 **Before committing backend changes:** `./vendor/bin/pint && php artisan test` must pass.
 
 **Demo accounts** (created by `DatabaseSeeder`, password `password` for all): `admin@tangaza.test`
-(admin), `owner@tangaza.test` (owner, has billboards), `customer@tangaza.test` (customer),
-`suspended@tangaza.test` (customer, seeded with `is_suspended: true` — for testing the
+(admin), `owner@tangaza.test` (owner, has billboards), `staff@tangaza.test` (staff — employee of
+`owner@tangaza.test`'s company, for testing the Partner team boundary), `customer@tangaza.test`
+(customer), `suspended@tangaza.test` (customer, seeded with `is_suspended: true` — for testing the
 suspend/reactivate flow and the login-rejection path without having to suspend a real account
 first). Plus 4 random owners and 8 random customers with seeded billboards/bookings/login-attempt
 history (including a couple of pre-flagged suspicious logins) so the dashboards aren't empty
@@ -322,21 +352,46 @@ around the city rather than scattering across Kenya.
   dropdown** (role/company line, a **Dashboard** link via `dashboardPathForRole`, a **Tangazaa
   Partner** link for owner/admin, and **Sign out**); it closes on outside-click, Escape, or
   navigation. Guests see a "SIGN IN" link instead.
-- **Tangazaa Partner (`/partner/*`, roles owner/admin, as of 2026-07-14):** the ERP workspace,
-  nested react-router routes under `components/partner/PartnerLayout.jsx` — a forest-deep sidebar
-  on desktop and a **bottom tab bar on mobile** (the installer-in-the-field view), plus a top bar
-  with `components/partner/NotificationBell.jsx` (polls `/api/notifications` every 60s, unread
-  badge, mark-one/mark-all read). `Header` treats `/partner*` as a dark-backdrop route. Pages in
-  `pages/partner/`: `PartnerOverviewPage` (stat cards + **live occupancy map** — gold marker =
-  occupied, emerald = vacant, popup shows advertiser + end date), `PartnerAvailabilityPage`
-  (board picker + read-only `AvailabilityCalendar`), `PartnerCrmPage` (client book, debounced
-  search, inline add/edit form), `PartnerArtworkPage` (status-filter chips + per-card stage
-  dropdown), `PartnerJobsPage` (print/install work orders with one-tap "next step" buttons:
-  pending → scheduled → in progress → completed, plus cancel/reopen), `PartnerSyncPage` (record
-  offline deals — billboard + CRM contact + dates + optional negotiated price — and a unified
-  app/offline bookings list with source badges). Shared primitives live in
+- **Tangazaa Partner (`/partner/*`, roles owner/admin/staff, as of 2026-07-14):** the ERP
+  workspace, nested react-router routes under `components/partner/PartnerLayout.jsx` — a
+  forest-deep sidebar on desktop and a **bottom tab bar on mobile** (the installer-in-the-field
+  view), plus a top bar with `components/partner/NotificationBell.jsx` (polls
+  `/api/notifications` every 60s, unread badge, mark-one/mark-all read). `Header` treats
+  `/partner*` as a dark-backdrop route, and **guests see a PARTNER button next to SIGN IN**
+  linking to `/partner/login` (`pages/partner/PartnerLoginPage.jsx` — the Partner-branded door
+  for company teams; same `/api/login` underneath, routes owner/admin/staff to `/partner` and
+  anyone else to their own dashboard). Unauthenticated visits to `/partner/*` redirect to
+  `/partner/login` (via `RequireRole`'s `loginPath` prop); staff land on `/partner` after any
+  login (`dashboardPathForRole('staff')`). Pages in `pages/partner/`: `PartnerOverviewPage`
+  (stat cards + **live occupancy map** — gold marker = occupied, emerald = vacant, popup shows
+  advertiser + end date; the revenue card renders only when the backend sends it, i.e. not for
+  staff), `PartnerAvailabilityPage` (board picker + read-only `AvailabilityCalendar`),
+  `PartnerCrmPage` (client book, debounced search, inline add/edit form), `PartnerArtworkPage`
+  (status-filter chips + per-card stage dropdown), `PartnerJobsPage` (print/install work orders
+  with one-tap "next step" buttons: pending → scheduled → in progress → completed, plus
+  cancel/reopen), `PartnerSyncPage` (record offline deals — billboard + CRM contact + dates +
+  optional negotiated price — and a unified app/offline bookings list with source badges), and
+  `PartnerTeamPage` (owner/admin only — create/remove staff logins; the nav item is hidden for
+  staff and the route double-gated by a nested `RequireRole`). Shared primitives live in
   `components/partner/ui.jsx`. All Partner API calls are in `api.js` under the
   "Tangazaa Partner" section.
+- **Campaign progress tracker UI (as of 2026-07-17):** the customer dashboard's booking cards
+  have a **Track progress** link (hidden on cancelled bookings) showing the latest stage label,
+  or a pulsing gold **Action needed** badge when `pending_approvals > 0`. It goes to the
+  **full page** `pages/BookingProgressPage.jsx` at `/bookings/:id/progress` (role `customer`;
+  started as a modal, converted to a page the same day) — a forest `DashboardHero` + booking
+  summary card, then `components/progress/CampaignTimeline.jsx`: a Glovo-style vertical timeline
+  of the four fixed stages (`components/progress/stages.js`, mirrors `CampaignStage`) with the
+  company's updates, install photos, an inline **Yes — go ahead / Request changes** answer card
+  on approval requests, and **👍 Love it / Request changes** feedback on ordinary updates. There
+  is no single-booking API endpoint — the page fetches `/my/bookings` and picks its booking; the
+  dashboard's badge refreshes naturally on remount when the user navigates back. `Header` treats
+  `/bookings/*` as a dark-backdrop route. The company posts updates from `PartnerSyncPage` —
+  each booking row has a **Progress** button opening
+  `components/partner/BookingUpdatesModal.jsx` (stage select, message, ≤4 photo uploads with
+  previews, "ask the client to approve" checkbox, client-reaction badges, delete). `apiFetch`
+  now skips the JSON `Content-Type` header for `FormData` bodies — don't "fix" that, multipart
+  needs its own boundary.
 - **Auth screens** (`LoginPage`/`SignupPage`) share `components/AuthLayout.jsx` — a full-bleed
   billboard backdrop (forest overlay + centred cream card). The backdrop loads an optional photo from
   `/public` (`billboard-auth.jpg` for login, `billboard-mockup.jpg` for signup) and **falls back to
