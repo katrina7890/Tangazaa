@@ -92,7 +92,7 @@ export default function CustomerDashboardPage() {
       <DashboardHero eyebrow={user?.companyName || user?.name} title="My Campaigns">
         <Link
           to="/map"
-          className="group inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-bold uppercase tracking-wide text-forest shadow-sm transition hover:-translate-y-0.5 hover:bg-gold-soft hover:shadow-md"
+          className="group inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
         >
           Browse Billboards
           <ArrowIcon />
@@ -154,7 +154,7 @@ export default function CustomerDashboardPage() {
               <p className="text-stone-600">You haven&apos;t booked any billboards yet.</p>
               <Link
                 to="/map"
-                className="mt-4 inline-block rounded-full bg-gold px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft"
+                className="mt-4 inline-block rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
               >
                 Find a Billboard
               </Link>

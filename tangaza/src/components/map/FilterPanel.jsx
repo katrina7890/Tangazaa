@@ -215,7 +215,7 @@ function SelectedBillboardCard({ billboard, startDate, endDate, meetsMinimum, on
       <button
         type="button"
         onClick={() => onViewDetails(billboard.id)}
-        className="mt-3 w-full rounded-full bg-gold px-3 py-2 text-xs font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft"
+        className="mt-3 w-full rounded-full bg-gold px-3 py-2 text-xs font-semibold text-forest-deep transition hover:bg-gold-soft"
       >
         View details &amp; book
       </button>

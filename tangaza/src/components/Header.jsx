@@ -8,7 +8,7 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   // These routes have a dark forest backdrop at the top, so the wordmark needs to be light there.
-  const darkBackdropRoutes = ['/', '/login', '/signup', '/dashboard', '/owner', '/admin'];
+  const darkBackdropRoutes = ['/', '/login', '/signup', '/dashboard', '/owner', '/admin', '/messages'];
   const onDarkBackdrop =
     darkBackdropRoutes.includes(location.pathname) ||
     location.pathname.startsWith('/partner') ||
@@ -65,7 +65,7 @@ export default function Header() {
     >
       <Link
         to="/"
-        className={`font-display text-2xl tracking-wide transition-colors ${
+        className={`font-display text-2xl font-bold tracking-[0.08em] transition-colors ${
           lightWordmark ? 'text-cream' : 'text-forest'
         }`}
       >
@@ -114,6 +114,16 @@ export default function Header() {
                 <GridIcon />
                 Dashboard
               </Link>
+              {user.role === 'customer' && (
+                <Link
+                  to="/messages"
+                  role="menuitem"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-cream"
+                >
+                  <ChatBubbleIcon />
+                  Messages
+                </Link>
+              )}
               {(user.role === 'owner' || user.role === 'admin') && (
                 <Link
                   to="/partner"
@@ -141,20 +151,20 @@ export default function Header() {
           {/* Separate door for billboard company teams — owners and their staff. */}
           <Link
             to="/partner/login"
-            className={`rounded-full border px-4 py-2.5 text-sm font-bold transition ${
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
               lightWordmark
-                ? 'border-cream/40 text-cream hover:border-gold hover:text-gold'
-                : 'border-forest/30 text-forest hover:border-gold-dark hover:text-gold-dark'
+                ? 'border-cream/30 text-cream hover:border-gold hover:text-gold'
+                : 'border-forest/25 text-forest hover:border-gold-dark hover:text-gold-dark'
             }`}
           >
-            PARTNER
+            Partner
           </Link>
           <Link
             to="/login"
-            className="flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-bold text-forest shadow-sm transition hover:bg-gold-soft hover:shadow-md"
+            className="flex items-center gap-2 rounded-full bg-gold px-5 py-2 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
           >
             <UserIcon />
-            SIGN IN
+            Sign in
           </Link>
         </div>
       )}
@@ -204,6 +214,14 @@ function BriefcaseIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 text-gold-dark" aria-hidden="true">
       <rect x="3" y="7" width="18" height="13" rx="2" />
       <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChatBubbleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4 text-gold-dark" aria-hidden="true">
+      <path d="M21 12a8 8 0 0 1-8 8H4l1.5-3.5A8 8 0 1 1 21 12z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

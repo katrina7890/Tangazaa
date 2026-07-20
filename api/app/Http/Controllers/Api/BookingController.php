@@ -10,6 +10,7 @@ use App\Http\Requests\Booking\ReactToBookingUpdateRequest;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Resources\BookingResource;
 use App\Http\Resources\BookingUpdateResource;
+use App\Http\Resources\ChatMessageResource;
 use App\Http\Resources\PaymentResource;
 use App\Models\AppNotification;
 use App\Models\Billboard;
@@ -73,6 +74,74 @@ class BookingController extends Controller
         return BookingUpdateResource::collection(
             $booking->updates()->with('author')->oldest()->get(),
         );
+    }
+
+    /** The customer's chat inbox: one conversation per booking. */
+    public function chats(Request $request): JsonResponse
+    {
+        $conversations = $request->user()->bookings()
+            ->where('status', '!=', 'cancelled')
+            ->with(['billboard.owner', 'messages' => fn ($query) => $query->latest()->limit(1)])
+            ->latest('start_date')
+            ->get()
+            ->map(function (Booking $booking) {
+                $latest = $booking->messages->first();
+
+                return [
+                    'booking_id' => $booking->id,
+                    'billboard' => $booking->billboard->title,
+                    'company' => $booking->billboard->owner->company_name ?? $booking->billboard->owner->name,
+                    'latest' => $latest ? [
+                        'body' => $latest->body ?? '📷 Photo',
+                        'from_customer' => $latest->fromCustomer(),
+                        'at' => $latest->created_at->toIso8601String(),
+                    ] : null,
+                ];
+            })
+            ->sortByDesc(fn (array $row) => $row['latest']['at'] ?? '')
+            ->values();
+
+        return response()->json(['data' => $conversations]);
+    }
+
+    /** Chat thread with the billboard company (customer side). */
+    public function messages(Request $request, Booking $booking): AnonymousResourceCollection
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 403);
+
+        return ChatMessageResource::collection(
+            $booking->messages()->with(['sender', 'booking'])->oldest()->get(),
+        );
+    }
+
+    public function sendMessage(Request $request, Booking $booking): JsonResponse
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 403);
+
+        $request->validate([
+            'body' => ['nullable', 'string', 'max:3000', 'required_without:attachments'],
+            'attachments' => ['nullable', 'array', 'max:4'],
+            'attachments.*' => ['image', 'max:4096'],
+        ]);
+
+        $message = $booking->messages()->create([
+            'sender_id' => $request->user()->id,
+            'body' => $request->input('body'),
+            'attachments' => collect($request->file('attachments', []))
+                ->map(fn ($file) => $file->store('chat', 'public'))
+                ->all() ?: null,
+        ]);
+
+        AppNotification::notify(
+            $booking->billboard->owner_id,
+            'chat.message',
+            'New message from '.($request->user()->company_name ?? $request->user()->name),
+            $message->body,
+        );
+
+        return (new ChatMessageResource($message->load(['sender', 'booking'])))
+            ->response()
+            ->setStatusCode(201);
     }
 
     /**

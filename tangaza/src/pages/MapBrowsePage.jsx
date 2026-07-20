@@ -150,7 +150,7 @@ export default function MapBrowsePage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/billboards/${billboard.id}`)}
-                    className="mt-3 w-full rounded-full bg-gold px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft"
+                    className="mt-3 w-full rounded-full bg-gold px-3 py-1.5 text-xs font-semibold text-forest-deep transition hover:bg-gold-soft"
                   >
                     View details &amp; book
                   </button>

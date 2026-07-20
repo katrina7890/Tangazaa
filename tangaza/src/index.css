@@ -7,26 +7,35 @@
   --color-sand-dark: #ddc49a;
   --color-campaign-green: #dce9da;
 
-  /* Forest-green + gold luxury palette (replaces the old violet accent).
-     Modeled on the "Premium dark + gold" pattern from the UI/UX skill. */
+  /* Forest-green + gold luxury palette. The *typography and component style*
+     follow vitorra.org's editorial look (see CLAUDE.md), but the colors are
+     deliberately Tangazaa's own — don't swap them for vitorra's charcoal/brass. */
   --color-forest: #1c2c24;
   --color-forest-deep: #14211b;
   --color-forest-soft: #28392f;
   --color-gold: #d6a23e;
   --color-gold-soft: #e4be6d;
-  --color-gold-dark: #a16207;
+  --color-gold-dark: #a16207; /* WCAG-safe gold for text on light */
 
-  --font-display: "Archivo Black", sans-serif;
-  --font-serif: "Playfair Display", serif;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
 }
 
 body {
   margin: 0;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
     'Helvetica Neue', sans-serif;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Cormorant is a fine-stroked display serif — give headings the tight
+   tracking the reference site uses so they read intentional, not default. */
+.font-serif,
+.font-display {
+  letter-spacing: -0.02em;
 }
 
 code {

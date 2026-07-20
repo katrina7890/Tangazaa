@@ -53,7 +53,7 @@ export default function OwnerDashboardPage() {
           <button
             type="button"
             onClick={() => setEditing('new')}
-            className="rounded-full bg-gold px-5 py-2.5 text-sm font-bold uppercase tracking-wide text-forest shadow-sm transition hover:-translate-y-0.5 hover:bg-gold-soft hover:shadow-md"
+            className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
           >
             + Add Billboard
           </button>

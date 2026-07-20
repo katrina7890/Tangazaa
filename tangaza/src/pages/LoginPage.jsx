@@ -66,7 +66,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft disabled:opacity-60"
         >
           {submitting ? 'Signing in…' : 'Sign in'}
           <ArrowIcon />

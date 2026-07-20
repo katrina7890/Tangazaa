@@ -65,7 +65,7 @@ export default function PartnerLoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-forest px-4 py-3 font-bold uppercase tracking-wide text-cream transition hover:bg-forest-soft disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-forest px-4 py-3 text-sm font-semibold text-cream transition hover:bg-forest-soft disabled:opacity-60"
         >
           {submitting ? 'Signing in…' : 'Enter workspace'}
         </button>

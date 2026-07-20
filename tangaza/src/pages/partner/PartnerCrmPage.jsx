@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   createPartnerContact,
   deletePartnerContact,
+  fetchPartnerContactDetail,
   fetchPartnerContacts,
   updatePartnerContact,
 } from '../../api';
@@ -9,11 +11,13 @@ import {
   Badge,
   EmptyState,
   SectionCard,
+  formatDisplayDate,
   ghostButtonClass,
   goldButtonClass,
   inputClass,
   labelClass,
 } from '../../components/partner/ui';
+import { formatKES } from '../../utils/availability';
 
 const EMPTY_FORM = { name: '', company: '', email: '', phone: '', notes: '' };
 
@@ -26,6 +30,7 @@ export default function PartnerCrmPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [viewing, setViewing] = useState(null); // null | contact (client file modal)
 
   // Debounced search, same 250ms pattern as the admin panels.
   useEffect(() => {
@@ -193,6 +198,9 @@ export default function PartnerCrmPage() {
                 {contact.notes && <p className="mt-1.5 line-clamp-2 text-xs text-stone-500">{contact.notes}</p>}
               </div>
               <div className="mt-3 flex gap-4 text-sm">
+                <button type="button" onClick={() => setViewing(contact)} className="font-semibold text-forest hover:underline">
+                  Client file
+                </button>
                 <button type="button" onClick={() => startEdit(contact)} className="font-semibold text-gold-dark hover:underline">
                   Edit
                 </button>
@@ -204,6 +212,99 @@ export default function PartnerCrmPage() {
           ))}
         </div>
       )}
+
+      {viewing && <ClientFileModal contact={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+/** The PRD §4 client file: campaigns, revenue and outstanding balance. */
+function ClientFileModal({ contact, onClose }) {
+  const [data, setData] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    fetchPartnerContactDetail(contact.id).then(setData).catch(() => setFailed(true));
+  }, [contact.id]);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-forest-deep/70 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-3 bg-forest px-6 py-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold">Client file</p>
+            <h2 className="mt-1 font-serif text-lg font-semibold text-cream">{contact.name}</h2>
+            {contact.company && <p className="text-xs text-cream/70">{contact.company}</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1.5 text-cream/70 hover:bg-white/10 hover:text-cream">
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto px-6 py-5">
+          {failed ? (
+            <p className="text-sm text-red-600">Could not load this client.</p>
+          ) : !data ? (
+            <p className="text-sm text-stone-600">Loading…</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <FileStat label="Revenue" value={formatKES(data.summary.revenue)} />
+                <FileStat label="Current" value={data.summary.currentCampaigns} />
+                <FileStat label="Past" value={data.summary.pastCampaigns} />
+                <FileStat
+                  label="Outstanding"
+                  value={formatKES(data.summary.outstanding)}
+                  accent={data.summary.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}
+                />
+              </div>
+              <div className="mt-4 space-y-0.5 text-sm text-slate-600">
+                {contact.email && <p>{contact.email}</p>}
+                {contact.phone && <p>{contact.phone}</p>}
+                {contact.notes && <p className="mt-1 text-xs text-stone-500">{contact.notes}</p>}
+              </div>
+              <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.1em] text-stone-500">Campaigns</p>
+              {data.bookings.length === 0 ? (
+                <p className="mt-2 text-sm text-stone-600">No campaigns recorded yet.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-sand/70">
+                  {data.bookings.map((booking) => (
+                    <li key={booking.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <Link
+                          to={`/partner/bookings/${booking.id}`}
+                          className="font-semibold text-slate-900 hover:text-gold-dark hover:underline"
+                        >
+                          {booking.billboard?.title}
+                        </Link>
+                        <p className="text-xs text-stone-500">
+                          {formatDisplayDate(booking.startDate)} → {formatDisplayDate(booking.endDate)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge tone={booking.endDate >= today && booking.status === 'confirmed' ? 'emerald' : 'stone'}>
+                          {booking.status === 'cancelled' ? 'Cancelled' : booking.endDate >= today ? 'Current' : 'Past'}
+                        </Badge>
+                        <span className="font-semibold text-gold-dark">{formatKES(booking.totalPrice)}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FileStat({ label, value, accent }) {
+  return (
+    <div className="rounded-2xl border border-sand bg-cream/40 p-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">{label}</p>
+      <p className={`mt-0.5 font-serif text-lg font-bold ${accent || 'text-forest'}`}>{value}</p>
     </div>
   );
 }

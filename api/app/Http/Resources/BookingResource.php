@@ -45,6 +45,14 @@ class BookingResource extends JsonResource
                 'status' => $this->latestPayment->status->value,
                 'amount' => $this->latestPayment->amount,
             ] : null),
+            // ERP pipeline rows that have been touched (the SPA composes the
+            // full 7-stage ladder; full detail comes from the pipeline endpoint).
+            'stages' => $this->whenLoaded('stages', fn () => $this->stages->map(fn ($stage) => [
+                'stage' => $stage->stage->value,
+                'substatus' => $stage->substatus,
+                'assigned_to' => $stage->assignee?->name,
+                'completed_at' => $stage->completed_at?->toIso8601String(),
+            ])->values()),
             // Campaign-progress summary for the dashboard card (full timeline
             // comes from /bookings/{id}/updates).
             'updates_count' => $this->whenCounted('updates'),

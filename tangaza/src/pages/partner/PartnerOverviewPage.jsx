@@ -6,8 +6,19 @@ import { NAIROBI_CENTER, TILE_THEMES } from '../../components/map/tileThemes';
 import { Badge, EmptyState, SectionCard, formatDisplayDate } from '../../components/partner/ui';
 import { formatKES } from '../../utils/availability';
 
-const OCCUPIED_COLOR = '#d6a23e'; // gold — earning money
-const VACANT_COLOR = '#10b981'; // emerald — ready to sell
+// One colour per portfolio state, mirrored between the map pins and the legend.
+const PIN_STATES = {
+  online_available: { color: '#10b981', label: 'Online · available' },
+  online_booked: { color: '#d6a23e', label: 'Online · booked' },
+  offline_available: { color: '#0ea5e9', label: 'Offline · available' },
+  offline_booked: { color: '#64748b', label: 'Offline · booked' },
+  maintenance: { color: '#ef4444', label: 'Maintenance' },
+};
+
+function pinState(board) {
+  if (board.underMaintenance) return 'maintenance';
+  return `${board.channel}_${board.occupied ? 'booked' : 'available'}`;
+}
 
 export default function PartnerOverviewPage() {
   const [data, setData] = useState(null);
@@ -22,55 +33,60 @@ export default function PartnerOverviewPage() {
   if (loading) return <p className="text-stone-600">Loading…</p>;
   if (!data) return <EmptyState>Couldn&apos;t load the overview — try refreshing.</EmptyState>;
 
-  const { stats, billboards } = data;
+  const { stats, billboards, activity } = data;
   const mapPoints = billboards.filter((board) => board.lat != null && board.lng != null);
-
-  const statCards = [
-    { label: 'Billboards', value: stats.billboards },
-    { label: 'Occupied today', value: stats.occupiedToday, accent: 'text-gold-dark' },
-    { label: 'Vacant today', value: stats.vacantToday, accent: 'text-emerald-600' },
-    { label: 'Active bookings', value: stats.activeBookings },
-    // The backend omits revenue for staff accounts — owner-only information.
-    ...(stats.confirmedRevenue != null
-      ? [{ label: 'Confirmed revenue', value: formatKES(stats.confirmedRevenue) }]
-      : []),
-    { label: 'Clients', value: stats.contacts, to: '/partner/crm' },
-    { label: 'Open artwork', value: stats.openArtworks, to: '/partner/artwork' },
-    { label: 'Open jobs', value: stats.openWorkOrders, to: '/partner/jobs' },
-  ];
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {statCards.map(({ label, value, accent, to }) => {
-          const card = (
-            <div className="h-full rounded-2xl border border-sand border-t-4 border-t-gold bg-white p-4 shadow-sm transition hover:shadow-md">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-              <p className={`mt-1 font-serif text-2xl font-semibold ${accent || 'text-forest'}`}>{value}</p>
-            </div>
-          );
-          return to ? (
-            <Link key={label} to={to}>
-              {card}
-            </Link>
-          ) : (
-            <div key={label}>{card}</div>
-          );
-        })}
+      {/* ── Portfolio stats ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Total billboards"
+          value={stats.billboards}
+          sub={`${stats.online} online · ${stats.offline} offline`}
+        />
+        <StatCard
+          label="Available today"
+          value={stats.availableToday}
+          sub={stats.maintenance > 0 ? `${stats.maintenance} in maintenance` : 'Ready to sell'}
+          accent="text-emerald-600"
+        />
+        <StatCard label="Occupancy" value={`${stats.occupancyPct}%`} sub={`${stats.occupiedToday} occupied now`}>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sand/70">
+            <div className="h-full rounded-full bg-gold" style={{ width: `${stats.occupancyPct}%` }} />
+          </div>
+        </StatCard>
+        <StatCard label="Active campaigns" value={stats.activeBookings} sub={`${stats.endingSoon} ending ≤ 14 days`} />
       </div>
 
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Upcoming installations"
+          value={stats.upcomingInstallations}
+          sub="Scheduled or pending"
+          to="/partner/jobs"
+        />
+        <StatCard label="Open artwork" value={stats.openArtworks} sub="In the design pipeline" to="/partner/artwork" />
+        <StatCard label="Clients" value={stats.contacts} sub="In your CRM" to="/partner/crm" />
+        {/* The backend omits revenue for staff accounts — owner-only information. */}
+        {stats.confirmedRevenue != null ? (
+          <StatCard label="Confirmed revenue" value={formatKES(stats.confirmedRevenue)} sub="All confirmed bookings" />
+        ) : (
+          <StatCard label="Open jobs" value={stats.openWorkOrders} sub="Print, install & more" to="/partner/jobs" />
+        )}
+      </div>
+
+      {/* ── Colour-coded portfolio map ──────────────────────── */}
       <SectionCard
-        title="Live occupancy map"
+        title="Portfolio map"
         action={
-          <div className="flex items-center gap-3 text-xs text-stone-600">
-            <span className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: OCCUPIED_COLOR }} />
-              Occupied
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: VACANT_COLOR }} />
-              Vacant
-            </span>
+          <div className="flex max-w-md flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[11px] text-stone-600">
+            {Object.values(PIN_STATES).map(({ color, label }) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                {label}
+              </span>
+            ))}
           </div>
         }
       >
@@ -87,62 +103,128 @@ export default function PartnerOverviewPage() {
             <MapContainer center={NAIROBI_CENTER} zoom={12} zoomControl={false} className="h-full w-full">
               <TileLayer url={TILE_THEMES.light.url} attribution={TILE_THEMES.light.attribution} />
               <FitBounds points={mapPoints.map((board) => [board.lat, board.lng])} />
-              {mapPoints.map((board) => (
-                <CircleMarker
-                  key={board.id}
-                  center={[board.lat, board.lng]}
-                  radius={10}
-                  pathOptions={{
-                    color: '#fff',
-                    weight: 2,
-                    fillColor: board.occupied ? OCCUPIED_COLOR : VACANT_COLOR,
-                    fillOpacity: 1,
-                  }}
-                >
-                  <Popup>
-                    <p className="font-semibold text-forest">{board.title}</p>
-                    <p className="text-sm text-stone-600">{board.location}</p>
-                    {board.occupied && board.currentBooking ? (
-                      <p className="mt-1 text-sm">
-                        <span className="font-medium text-gold-dark">
-                          {board.currentBooking.advertiser || 'Booked'}
-                        </span>{' '}
-                        until {formatDisplayDate(board.currentBooking.endDate)}
-                        {board.currentBooking.source === 'offline' ? ' (offline deal)' : ''}
+              {mapPoints.map((board) => {
+                const state = pinState(board);
+                return (
+                  <CircleMarker
+                    key={board.id}
+                    center={[board.lat, board.lng]}
+                    radius={10}
+                    pathOptions={{
+                      color: '#fff',
+                      weight: 2,
+                      fillColor: PIN_STATES[state].color,
+                      fillOpacity: 1,
+                    }}
+                  >
+                    <Popup>
+                      <p className="font-semibold text-forest">{board.title}</p>
+                      <p className="text-sm text-stone-600">{board.location}</p>
+                      <p className="mt-1 text-xs text-stone-500">
+                        {board.size} · {formatKES(board.pricePerWeek)}/week
                       </p>
-                    ) : (
-                      <p className="mt-1 text-sm font-medium text-emerald-600">Available now</p>
-                    )}
-                  </Popup>
-                </CircleMarker>
-              ))}
+                      <p className="mt-1.5 text-sm">
+                        <span className="font-medium" style={{ color: PIN_STATES[state].color }}>
+                          {PIN_STATES[state].label}
+                        </span>
+                      </p>
+                      {board.occupied && board.currentBooking ? (
+                        <p className="mt-0.5 text-sm">
+                          {board.currentBooking.advertiser || 'Booked'} until{' '}
+                          {formatDisplayDate(board.currentBooking.endDate)}
+                          {board.currentBooking.source === 'offline' ? ' (offline deal)' : ''}
+                        </p>
+                      ) : !board.underMaintenance ? (
+                        <p className="mt-0.5 text-sm">Next free {formatDisplayDate(board.nextAvailableFrom)}</p>
+                      ) : null}
+                      <Link
+                        to="/partner/availability"
+                        className="mt-1.5 inline-block text-xs font-semibold text-gold-dark hover:underline"
+                      >
+                        View availability calendar
+                      </Link>
+                    </Popup>
+                  </CircleMarker>
+                );
+              })}
             </MapContainer>
           </div>
         )}
       </SectionCard>
 
-      {mapPoints.length > 0 && (
-        <SectionCard title="Board-by-board status">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {billboards.map((board) => (
-              <div key={board.id} className="flex items-start justify-between gap-3 rounded-2xl border border-sand bg-white p-4">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-900">{board.title}</p>
-                  <p className="truncate text-sm text-slate-500">{board.location}</p>
-                  <p className="mt-1.5 text-xs text-stone-500">
-                    {board.occupied && board.currentBooking
-                      ? `${board.currentBooking.advertiser || 'Booked'} · to ${formatDisplayDate(board.currentBooking.endDate)}`
-                      : `Next free ${formatDisplayDate(board.nextAvailableFrom)}`}
-                  </p>
-                </div>
-                <Badge tone={board.occupied ? 'gold' : 'emerald'}>{board.occupied ? 'Occupied' : 'Vacant'}</Badge>
-              </div>
-            ))}
-          </div>
+      {/* ── Activity + board-by-board status ────────────────── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Recent activity">
+          {activity.length === 0 ? (
+            <EmptyState>Nothing yet — activity shows up here as bookings and jobs move.</EmptyState>
+          ) : (
+            <ul className="divide-y divide-sand/70">
+              {activity.map((item, index) => (
+                <li key={`${item.at}-${index}`} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <span
+                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                      { booking: 'bg-gold', campaign: 'bg-emerald-500', job: 'bg-sky-500' }[item.type] || 'bg-stone-400'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800">{item.title}</p>
+                    {item.detail && <p className="truncate text-xs text-stone-500">{item.detail}</p>}
+                  </div>
+                  <span className="shrink-0 text-[11px] text-stone-400">{formatDisplayDate(item.at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </SectionCard>
-      )}
+
+        <SectionCard title="Board-by-board status">
+          {billboards.length === 0 ? (
+            <EmptyState>No billboards yet.</EmptyState>
+          ) : (
+            <div className="space-y-3">
+              {billboards.map((board) => (
+                <div key={board.id} className="flex items-start justify-between gap-3 rounded-2xl border border-sand bg-white p-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{board.title}</p>
+                    <p className="truncate text-xs text-slate-500">{board.location}</p>
+                    <p className="mt-1 text-xs text-stone-500">
+                      {board.underMaintenance
+                        ? 'Out of rotation for maintenance'
+                        : board.occupied && board.currentBooking
+                          ? `${board.currentBooking.advertiser || 'Booked'} · to ${formatDisplayDate(board.currentBooking.endDate)}`
+                          : `Next free ${formatDisplayDate(board.nextAvailableFrom)}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge tone={board.channel === 'offline' ? 'sky' : 'gold'}>
+                      {board.channel === 'offline' ? 'Offline' : 'Tangazaa'}
+                    </Badge>
+                    {board.underMaintenance ? (
+                      <Badge tone="red">Maintenance</Badge>
+                    ) : (
+                      <Badge tone={board.occupied ? 'amber' : 'emerald'}>{board.occupied ? 'Booked' : 'Available'}</Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
     </div>
   );
+}
+
+function StatCard({ label, value, sub, accent, to, children }) {
+  const card = (
+    <div className={`h-full rounded-2xl border border-sand bg-white p-4 ${to ? 'transition hover:border-gold/50' : ''}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-stone-500">{label}</p>
+      <p className={`mt-1.5 font-serif text-3xl font-bold tracking-tight ${accent || 'text-forest'}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-stone-400">{sub}</p>}
+      {children}
+    </div>
+  );
+  return to ? <Link to={to}>{card}</Link> : card;
 }
 
 function FitBounds({ points }) {

@@ -8,11 +8,16 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillboardController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\Partner\AnalyticsController;
 use App\Http\Controllers\Api\Partner\ArtworkController;
+use App\Http\Controllers\Api\Partner\BookingPipelineController;
 use App\Http\Controllers\Api\Partner\BookingUpdateController;
+use App\Http\Controllers\Api\Partner\ChatController;
 use App\Http\Controllers\Api\Partner\ContactController;
 use App\Http\Controllers\Api\Partner\OfflineBookingController;
 use App\Http\Controllers\Api\Partner\OverviewController;
+use App\Http\Controllers\Api\Partner\ReminderController;
+use App\Http\Controllers\Api\Partner\SettingsController;
 use App\Http\Controllers\Api\Partner\TeamController;
 use App\Http\Controllers\Api\Partner\WorkOrderController;
 use App\Http\Controllers\Api\PaymentController;
@@ -43,6 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/billboards/{billboard}', [BillboardController::class, 'destroy']);
         Route::get('/billboards/{billboard}/bookings', [BillboardController::class, 'bookings']);
 
+        // Workspace settings (PRD §7): pricing, lead times, payout — owner-only.
+        Route::get('/partner/settings', [SettingsController::class, 'show']);
+        Route::put('/partner/settings', [SettingsController::class, 'update']);
+        Route::post('/partner/settings/logo', [SettingsController::class, 'logo']);
+
         // Staff accounts are created by their owner here — never self-registered.
         Route::get('/partner/team', [TeamController::class, 'index']);
         Route::post('/partner/team', [TeamController::class, 'store']);
@@ -58,7 +68,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('partner')->group(function () {
             Route::get('/overview', OverviewController::class);
 
+            Route::get('/analytics', AnalyticsController::class);
+
             Route::get('/contacts', [ContactController::class, 'index']);
+            Route::get('/contacts/{contact}', [ContactController::class, 'show']);
             Route::post('/contacts', [ContactController::class, 'store']);
             Route::put('/contacts/{contact}', [ContactController::class, 'update']);
             Route::delete('/contacts/{contact}', [ContactController::class, 'destroy']);
@@ -74,7 +87,22 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/work-orders/{workOrder}', [WorkOrderController::class, 'destroy']);
 
             Route::get('/bookings', [OfflineBookingController::class, 'index']);
+            Route::get('/bookings/{booking}', [OfflineBookingController::class, 'show']);
             Route::post('/offline-bookings', [OfflineBookingController::class, 'store']);
+
+            // The 7-stage operational pipeline (the ERP's package-tracking view).
+            // Stage writes are POST (not PATCH) because PHP won't parse
+            // multipart bodies on PATCH and stages accept photo uploads.
+            Route::get('/bookings/{booking}/pipeline', [BookingPipelineController::class, 'show']);
+            Route::post('/bookings/{booking}/pipeline/{stage}', [BookingPipelineController::class, 'update']);
+
+            // Computed to-dos: overdue artwork/printing, installs due, payouts.
+            Route::get('/reminders', ReminderController::class);
+
+            // Chat Centre — one conversation per booking (PRD §5).
+            Route::get('/chats', [ChatController::class, 'index']);
+            Route::get('/bookings/{booking}/messages', [ChatController::class, 'show']);
+            Route::post('/bookings/{booking}/messages', [ChatController::class, 'store']);
 
             // Campaign progress tracker — the company posts Glovo-style stage
             // updates (with photos) that the customer follows on their dashboard.
@@ -93,6 +121,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // answer the company's updates (approve / like / request changes).
         Route::get('/bookings/{booking}/updates', [BookingController::class, 'updates']);
         Route::patch('/booking-updates/{update}/react', [BookingController::class, 'reactToUpdate']);
+
+        // Chat with the billboard company about a booking.
+        Route::get('/my/chats', [BookingController::class, 'chats']);
+        Route::get('/bookings/{booking}/messages', [BookingController::class, 'messages']);
+        Route::post('/bookings/{booking}/messages', [BookingController::class, 'sendMessage']);
 
         // Simulated Paystack checkout.
         Route::post('/bookings/{booking}/pay', [PaymentController::class, 'initialize']);

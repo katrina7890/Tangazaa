@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\Partner;
 
+use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Partner\StoreContactRequest;
+use App\Http\Resources\BookingResource;
 use App\Http\Resources\ContactResource;
 use App\Models\Contact;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +32,42 @@ class ContactController extends Controller
             ->get();
 
         return ContactResource::collection($contacts);
+    }
+
+    /**
+     * The CRM client file: contact details plus their campaign history,
+     * revenue and outstanding balance (ERP PRD §4).
+     */
+    public function show(Request $request, Contact $contact): JsonResponse
+    {
+        Gate::authorize('update', $contact);
+
+        $bookings = $contact->bookings()
+            ->with(['billboard', 'latestPayment'])
+            ->orderByDesc('start_date')
+            ->get();
+
+        $confirmed = $bookings->where('status', BookingStatus::Confirmed);
+        $today = now()->startOfDay();
+
+        return response()->json([
+            'contact' => new ContactResource($contact),
+            'bookings' => BookingResource::collection($bookings),
+            'summary' => [
+                'revenue' => $confirmed->sum('total_price'),
+                'current_campaigns' => $confirmed
+                    ->filter(fn ($booking) => $booking->end_date >= $today)
+                    ->count(),
+                'past_campaigns' => $confirmed
+                    ->filter(fn ($booking) => $booking->end_date < $today)
+                    ->count(),
+                // Confirmed app bookings with no successful payment yet.
+                'outstanding' => $confirmed
+                    ->filter(fn ($booking) => ($booking->source?->value ?? 'app') === 'app'
+                        && $booking->latestPayment?->status?->value !== 'success')
+                    ->sum('total_price'),
+            ],
+        ]);
     }
 
     public function store(StoreContactRequest $request): JsonResponse

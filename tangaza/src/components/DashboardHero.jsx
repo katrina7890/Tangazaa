@@ -11,9 +11,9 @@ export default function DashboardHero({ eyebrow, title, children }) {
       <div className="relative mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-4 px-4 pb-16 pt-28">
         <div>
           {eyebrow && (
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gold-soft">{eyebrow}</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-gold">{eyebrow}</p>
           )}
-          <h1 className="mt-1 font-serif text-3xl font-semibold text-cream sm:text-4xl">{title}</h1>
+          <h1 className="mt-1.5 font-serif text-4xl font-bold tracking-tight text-cream sm:text-5xl">{title}</h1>
         </div>
         {children}
       </div>

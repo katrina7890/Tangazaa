@@ -64,6 +64,18 @@ class Booking extends Model
         return $this->hasMany(BookingUpdate::class);
     }
 
+    /** ERP pipeline stage records (only stages that have been touched). */
+    public function stages(): HasMany
+    {
+        return $this->hasMany(BookingStage::class);
+    }
+
+    /** Chat Centre thread for this booking. */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(ChatMessage::class);
+    }
+
     public function latestUpdate(): HasOne
     {
         return $this->hasOne(BookingUpdate::class)->latestOfMany();

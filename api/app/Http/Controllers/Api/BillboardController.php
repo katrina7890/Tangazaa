@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\BillboardChannel;
 use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Billboard\StoreBillboardRequest;
@@ -18,9 +19,16 @@ class BillboardController extends Controller
 {
     public function index(): AnonymousResourceCollection
     {
+        // The public marketplace only shows boards sold through Tangazaa —
+        // offline-channel and under-maintenance inventory is ERP-only.
         $billboards = Billboard::query()
             ->where('is_active', true)
-            ->with(['bookings' => fn ($query) => $query->where('status', BookingStatus::Confirmed)])
+            ->where('channel', BillboardChannel::Online)
+            ->where('under_maintenance', false)
+            ->whereNull('archived_at')
+            // Owners can hide their whole portfolio via Partner settings.
+            ->whereDoesntHave('owner.partnerSettings', fn ($query) => $query->where('marketplace_visible', false))
+            ->with(['owner.partnerSettings', 'bookings' => fn ($query) => $query->where('status', BookingStatus::Confirmed)])
             ->latest()
             ->get();
 
@@ -29,7 +37,12 @@ class BillboardController extends Controller
 
     public function show(Billboard $billboard): BillboardResource
     {
-        $billboard->load(['bookings' => fn ($query) => $query->where('status', BookingStatus::Confirmed)]);
+        // Offline-channel boards are never public (maintenance boards stay
+        // viewable — they're just unbookable until the flag clears).
+        abort_if($billboard->channel === BillboardChannel::Offline, 404);
+        abort_if($billboard->owner->partnerSettings?->marketplace_visible === false, 404);
+
+        $billboard->load(['owner.partnerSettings', 'bookings' => fn ($query) => $query->where('status', BookingStatus::Confirmed)]);
 
         return new BillboardResource($billboard);
     }
@@ -57,7 +70,15 @@ class BillboardController extends Controller
 
     public function update(UpdateBillboardRequest $request, Billboard $billboard): BillboardResource
     {
-        $billboard->update($request->validated());
+        $data = $request->validated();
+
+        // `archived` is a boolean in the API but a timestamp in storage.
+        if (array_key_exists('archived', $data)) {
+            $data['archived_at'] = $data['archived'] ? ($billboard->archived_at ?? now()) : null;
+            unset($data['archived']);
+        }
+
+        $billboard->update($data);
 
         return new BillboardResource($billboard);
     }

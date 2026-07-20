@@ -28,6 +28,17 @@ class BillboardResource extends JsonResource
             'price_per_week' => $this->price_per_week,
             'description' => $this->description,
             'is_active' => $this->is_active,
+            'channel' => $this->channel?->value ?? 'online',
+            'under_maintenance' => (bool) $this->under_maintenance,
+            'archived' => $this->archived_at !== null,
+            'road' => $this->road,
+            'lighting' => $this->lighting,
+            'orientation' => $this->orientation,
+            'daily_traffic' => $this->daily_traffic,
+            'visibility_score' => $this->visibility_score,
+            'discount_pct' => $this->discount_pct,
+            'tags' => $this->tags ?? [],
+            'amenities' => $this->amenities ?? [],
             'available_from' => $this->available_from?->format('Y-m-d'),
             // The next genuinely free date (past bookings stepped over). Only when
             // bookings are loaded, so we never trigger an N+1 on list endpoints.

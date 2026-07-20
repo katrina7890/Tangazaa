@@ -109,7 +109,7 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 
 | Method | Path | Access | Notes |
 |---|---|---|---|
-| GET | `/billboards` | public | Active billboards only, with `booked_ranges` (confirmed bookings), `available_from`, and a computed `next_available_from`. |
+| GET | `/billboards` | public | Active, `online`-channel, non-maintenance billboards only, with `booked_ranges` (confirmed bookings), `available_from`, and a computed `next_available_from`. |
 | GET | `/billboards/{id}` | public | Single billboard, same shape. |
 | GET | `/my/billboards` | owner, admin | The current owner's billboards (including inactive). |
 | POST | `/billboards` | owner, admin | `StoreBillboardRequest` (now requires `available_from`, a `date` `after_or_equal:today`); authorized via `BillboardPolicy::create`. |
@@ -197,12 +197,53 @@ for staff (money is owner-only); and **team management** (`GET|POST /partner/tea
 `employer_id` is theirs. Modules:
 
 - **Overview / live occupancy** — `GET /partner/overview` (`OverviewController`, invokable):
-  headline stats (billboards, occupied/vacant today, active bookings, confirmed revenue, contacts,
-  open artworks/work orders) plus a per-billboard occupancy snapshot (current confirmed booking,
-  advertiser, `next_available_from`) that powers the SPA's occupancy map.
+  headline stats (total/online/offline/maintenance boards, available today, occupancy %, active
+  bookings, ending-soon ≤14 days, upcoming installations, confirmed revenue, contacts, open
+  artworks/work orders), a per-billboard snapshot (channel, maintenance flag, current confirmed
+  booking, advertiser, `next_available_from`) that powers the SPA's **colour-coded portfolio
+  map** (online/offline × available/booked + maintenance), and a merged `activity` feed (latest
+  bookings, campaign updates, work orders).
+- **Online/offline inventory (as of 2026-07-19)** — `billboards.channel`
+  (`App\Enums\BillboardChannel`: `online`/`offline`, default online) and
+  `billboards.under_maintenance` (bool). Offline boards are ERP-only: hidden from the public
+  `GET /billboards` list, 404 on public show, and `CreateBooking` rejects them (maintenance
+  boards are also unlisted/unbookable but still viewable by id). Owners set both from
+  `BillboardForm` ("Sales channel" select + maintenance checkbox); offline deals on offline
+  boards still book through `POST /partner/offline-bookings` as before.
+- **Rich billboard attributes (as of 2026-07-19, ERP PRD §3)** — nullable `billboards` columns:
+  `road`, `lighting` (front_lit|back_lit|led|none), `orientation` (landscape|portrait),
+  `daily_traffic`, `visibility_score` (1–10), `discount_pct` (0–90), `tags`/`amenities` (JSON
+  string arrays), and `archived_at` (**archive**: API boolean `archived` on update, translated in
+  `BillboardController@update`; archived boards leave the public marketplace + `CreateBooking`,
+  are excluded from analytics, but stay in `/my/billboards`). All editable in `BillboardForm`
+  (tags/amenities as comma-separated inputs). **Billboard photo uploads are still not built**
+  (placeholder images remain) — the one §3 item deferred.
 - **CRM** — `contacts` table (`owner_id`, name, company, email, phone, notes). CRUD at
   `GET|POST /partner/contacts`, `PUT|DELETE /partner/contacts/{id}`; `?search=` matches
-  name/company/email/phone.
+  name/company/email/phone. **Client file (PRD §4)**: `GET /partner/contacts/{id}` returns the
+  contact + their bookings + summary (revenue, current/past campaign counts, `outstanding` =
+  confirmed app bookings without a successful payment). SPA: "Client file" modal on
+  `PartnerCrmPage`. Contracts/invoices remain unbuilt (no document system).
+- **Analytics (PRD §6)** — `GET /partner/analytics` (`AnalyticsController`, invokable; archived
+  boards excluded): occupancy rate, avg duration, avg lead time (app bookings, created→start),
+  conversion rate (app confirmed/all), app vs offline revenue, revenue by month (last 6, keyed by
+  start date) & by billboard, most-booked locations, and plain-language `insights` (boards vacant
+  ≥14 days; per-location demand delta month-over-month). Money fields are null/empty for staff.
+  SPA: `PartnerAnalyticsPage` at `/partner/analytics` (CSS bar charts, no chart lib).
+- **Chat Centre (PRD §5, as of 2026-07-19)** — `chat_messages` table (`booking_id`, `sender_id`,
+  nullable `body`, `attachments` JSON of public-disk image paths; body-or-attachment required).
+  **One conversation per booking**: app bookings are two-way with the customer; offline-deal
+  threads double as the team's internal comms log (those clients aren't platform users). Partner
+  side (`Partner\ChatController`, auth via `BookingStagePolicy`): `GET /partner/chats`
+  (conversation list + latest message), `GET|POST /partner/bookings/{id}/messages`. Customer side
+  (in `BookingController`): `GET|POST /bookings/{id}/messages`. New messages notify the other
+  side in-app (`chat.message`). `ChatMessageResource` returns `mine` per-requester so bubbles
+  align. Customer inbox: `GET /my/chats` (one conversation per booking). SPA: `/partner/chat`
+  (`PartnerChatPage` — conversation list + thread), the customer's `/messages` inbox
+  (`CustomerMessagesPage`, role customer, reached from the Header account menu; dark-backdrop
+  route), and a Messages card on the customer's `BookingProgressPage`; all use shared
+  `components/chat/ChatThread.jsx` (thread + composer with ≤4 image attachments). No polling —
+  threads refresh on load/send; real-time (websockets) is future infra.
 - **Artwork pipeline** — `artworks` table (`App\Enums\ArtworkStatus`:
   `brief → in_design → awaiting_approval → approved|rejected`; nullable `contact_id`,
   `billboard_id`, `due_date`, `file_name` — file reference only, real uploads are a later task).
@@ -221,6 +262,40 @@ for staff (money is owner-only); and **team management** (`GET|POST /partner/tea
   overlap check against confirmed bookings still applies. Optional `total_price` records the
   negotiated amount (defaults to days × `price_per_day`). `GET /partner/bookings (?source=)`
   lists every booking across the owner's boards, app + offline together.
+- **Booking pipeline + reminders (as of 2026-07-19, ERP PRD §2)** — the ERP's package-tracking
+  view. `booking_stages` table (unique per `booking_id`+`stage`; `App\Enums\PipelineStage`:
+  `confirmed → artwork → printing → installation_scheduled → installed → campaign_active →
+  payment_released`; per-stage nullable `substatus` (artwork: waiting/client_providing/
+  provider_designing/approved; printing: client_printing/provider_printing/completed), `note`,
+  `photos` JSON (public disk), `assigned_to` FK users (workspace members only, validated in
+  `UpdateBookingStageRequest`), `completed_at`). Rows exist only for touched stages;
+  `GET /partner/bookings/{id}/pipeline` composes the full ladder (+ `team` for the assignee
+  picker), auto-completing `confirmed` from booking status, and `payment_released` is
+  inapplicable to offline deals. `POST /partner/bookings/{id}/pipeline/{stage}` (POST not PATCH —
+  PHP won't parse multipart on PATCH) updates fields; `completed=1` **cascades earlier stages
+  complete** and notifies the client in-app (`booking.stage` — email/SMS are future infra),
+  `completed=0` reopens later stages. `GET /partner/bookings/{id}` (detail incl. `payments`),
+  `GET /partner/reminders` (computed by `Services\Partner\ReminderService`: artwork/printing
+  overdue, installation tomorrow, campaign starting/ending, payout release). SPA:
+  `/partner/bookings` (`PartnerBookingsPage` — reminders banner, list with image/client/dates/
+  current stage/mini 7-segment bar) and `/partner/bookings/:id` (`PartnerBookingDetailPage` —
+  clickable green/blue/grey pipeline with per-stage editor, payment history, "Post client
+  update" opens the existing `BookingUpdatesModal`). Shared stage metadata in
+  `components/partner/pipeline.js`.
+- **Workspace settings (PRD §7, as of 2026-07-19)** — `partner_settings` table (one row per
+  owner, created lazily on first `GET /partner/settings`; `SettingsController`, routes are
+  `role:owner,admin` — staff locked out). Fields: `logo_path` (upload via
+  `POST /partner/settings/logo`), contact email/phone, `working_hours`, design/printing service
+  toggles + prices, `installation_price`, **`lead_times` JSON (days keyed by `BillboardType`
+  value; defaults physical=7 / digital_led=3 in `PartnerSetting::DEFAULT_LEAD_TIMES`)**, `payout`
+  JSON (escrow account, demo strings), `notifications` JSON, `marketplace_visible`.
+  **Load-bearing behavior:** lead times apply **only once the owner has a settings row** (so
+  unconfigured owners keep old behavior) — `Billboard::leadDays()` pushes
+  `nextAvailableDate()` and `CreateBooking` rejects earlier starts with the earliest date in the
+  message; `marketplace_visible=false` hides the owner's whole portfolio from public
+  list/show (404). Public billboard queries eager-load `owner.partnerSettings`. SPA:
+  `/partner/settings` (`PartnerSettingsPage`, owner-only nav item + nested `RequireRole`).
+  Notification prefs/payout are stored records only (no email/SMS/escrow infra yet).
 - **Notifications** — `app_notifications` table (deliberately not Laravel's `notifications`, to
   avoid a future collision), `AppNotification` model with a static `notify()` helper. Produced in
   `CreateBooking` (`booking.requested` → billboard owner), `PaystackService::verify`
@@ -289,14 +364,20 @@ around the city rather than scattering across Kenya.
   `transformIgnorePatterns` (for ESM-only `react-leaflet`) can hook into CRA's pipeline without
   ejecting. `start`/`build`/`test` all go through `craco`; `eject` is still plain `react-scripts`.
 - **Styling:** Tailwind CSS v4, configured via `@theme` in `src/index.css` (no `tailwind.config.js`
-  — that's the v4 way). Custom tokens: `cream`/`sand`/`sand-dark`/`campaign-green` colors and a
-  `font-display` (Archivo Black, loaded via Google Fonts in `public/index.html`) for the
-  "TANGAZAA" wordmark. **Palette (as of 2026-06-18):** a forest-green + gold luxury scheme —
-  tokens `forest`/`forest-deep`/`forest-soft` (dark backgrounds), `gold`/`gold-soft`/`gold-dark`
-  (accent; `gold-dark` is the WCAG-safe variant for text on light), plus the existing cream/sand.
-  Headings use the `font-serif` token (**Playfair Display**); body is **Inter** (both loaded in
-  `public/index.html`). This replaced the original Tailwind `violet` accent from the Lovable.dev
-  reference — don't reintroduce `violet-*` classes.
+  — that's the v4 way). Custom tokens: `cream`/`sand`/`sand-dark`/`campaign-green` colors plus
+  `forest`/`forest-deep`/`forest-soft` and `gold`/`gold-soft`/`gold-dark`.
+  **Palette:** the forest-green + gold luxury scheme — `forest`/`forest-deep`/`forest-soft`
+  dark greens, `gold`/`gold-soft` accent (`gold-dark` is the WCAG-safe variant for text on
+  light), warm cream/sand surfaces. **Type & component style (as of 2026-07-18):** modeled on
+  vitorra.org's editorial look at the owner's request, **but keeping Tangazaa's own colors**
+  (a charcoal/brass palette was tried and explicitly reverted — don't reintroduce it).
+  `font-serif`/`font-display` are both **Cormorant Garamond** (bold, tight tracking — a global
+  `.font-serif/.font-display { letter-spacing: -0.02em }` rule lives in `index.css`); body is
+  **DM Sans** (loaded in `public/index.html`). House style: sentence-case serif headlines
+  (often ending in a period), 11px bold uppercase `tracking-[0.12em]` eyebrow labels, flat
+  sentence-case pill buttons (`font-semibold`, no uppercase/shadow/hover-lift), hairline
+  borders over drop shadows. Earlier type schemes (Lovable's `violet-*` accent, then
+  Playfair/Inter/Archivo Black) are gone — don't reintroduce them.
 - **Routing:** `react-router-dom`, **pinned to v6** (not v7 — v7's `package.json` `exports` map
   isn't understood by react-scripts 5's bundled Jest 27 and breaks `npm test` with
   `Cannot find module 'react-router-dom'`, even though it works fine in the browser).

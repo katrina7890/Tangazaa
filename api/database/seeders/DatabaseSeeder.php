@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\ArtworkStatus;
+use App\Enums\BillboardChannel;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Enums\CampaignStage;
@@ -118,6 +119,13 @@ class DatabaseSeeder extends Seeder
         // screens (CRM, artwork, work orders, sync) aren't empty on first login.
         $contacts = Contact::factory()->count(5)->create(['owner_id' => $owner->id]);
         $ownerBoards = $owner->billboards()->get();
+
+        // One offline-channel board (sold through the owner's own channels, not
+        // the app) and one maintenance board, so the ERP map shows every pin
+        // colour out of the box. Created after $ownerBoards is captured so the
+        // demo bookings below always land on normal online boards.
+        Billboard::factory()->create(['owner_id' => $owner->id, 'channel' => BillboardChannel::Offline]);
+        Billboard::factory()->create(['owner_id' => $owner->id, 'under_maintenance' => true]);
 
         if ($ownerBoards->isNotEmpty()) {
             // An offline (walk-in) deal, so the sync screen shows both sources.

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Booking;
 
+use App\Enums\BillboardChannel;
 use App\Enums\BookingStatus;
 use App\Models\AppNotification;
 use App\Models\Billboard;
@@ -16,6 +17,13 @@ class CreateBooking
 
     public function handle(User $customer, Billboard $billboard, string $startDate, string $endDate): Booking
     {
+        // ERP-only inventory can never be booked through the app.
+        if ($billboard->channel === BillboardChannel::Offline || $billboard->under_maintenance || $billboard->archived_at) {
+            throw ValidationException::withMessages([
+                'billboard_id' => ['This billboard is not currently bookable on Tangazaa.'],
+            ]);
+        }
+
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->startOfDay();
         $days = (int) $start->diffInDays($end) + 1;
@@ -31,6 +39,14 @@ class CreateBooking
         if ($start->lt(Carbon::today())) {
             throw ValidationException::withMessages([
                 'start_date' => ['Bookings cannot start on a date that has already passed.'],
+            ]);
+        }
+
+        // Owner-configured notice period (Partner settings → lead times).
+        $leadDays = $billboard->leadDays();
+        if ($leadDays > 0 && $start->lt(Carbon::today()->addDays($leadDays))) {
+            throw ValidationException::withMessages([
+                'start_date' => ["This billboard needs {$leadDays} days' notice for artwork and installation — the earliest start is ".Carbon::today()->addDays($leadDays)->format('M j, Y').'.'],
             ]);
         }
 

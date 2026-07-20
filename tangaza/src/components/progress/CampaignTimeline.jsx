@@ -186,7 +186,7 @@ function UpdateCard({ update, onReacted }) {
                   type="button"
                   disabled={saving}
                   onClick={() => react('approved', false)}
-                  className="rounded-full bg-gold px-4 py-2 text-xs font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft disabled:opacity-50"
+                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-forest-deep transition hover:bg-gold-soft disabled:opacity-50"
                 >
                   {saving ? 'Sending…' : 'Yes — go ahead'}
                 </button>

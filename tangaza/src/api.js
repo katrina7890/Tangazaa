@@ -108,6 +108,17 @@ function mapBillboard(billboard) {
     pricePerWeek: billboard.price_per_week,
     description: billboard.description,
     isActive: billboard.is_active,
+    channel: billboard.channel || 'online',
+    underMaintenance: billboard.under_maintenance ?? false,
+    archived: billboard.archived ?? false,
+    road: billboard.road || '',
+    lighting: billboard.lighting || '',
+    orientation: billboard.orientation || '',
+    dailyTraffic: billboard.daily_traffic ?? null,
+    visibilityScore: billboard.visibility_score ?? null,
+    discountPct: billboard.discount_pct ?? null,
+    tags: billboard.tags || [],
+    amenities: billboard.amenities || [],
     availableFrom: billboard.available_from || null,
     nextAvailableFrom: billboard.next_available_from || null,
     bookedRanges: billboard.booked_ranges || [],
@@ -313,13 +324,19 @@ export async function cancelAdminBooking(id) {
 // ---------------------------------------------------------------------------
 
 export async function fetchPartnerOverview() {
-  const { stats, billboards } = await apiFetch('/api/partner/overview');
+  const { stats, billboards, activity } = await apiFetch('/api/partner/overview');
   return {
     stats: {
       billboards: stats.billboards,
+      online: stats.online,
+      offline: stats.offline,
+      maintenance: stats.maintenance,
       occupiedToday: stats.occupied_today,
-      vacantToday: stats.vacant_today,
+      availableToday: stats.available_today,
+      occupancyPct: stats.occupancy_pct,
       activeBookings: stats.active_bookings,
+      endingSoon: stats.ending_soon,
+      upcomingInstallations: stats.upcoming_installations,
       confirmedRevenue: stats.confirmed_revenue,
       contacts: stats.contacts,
       openArtworks: stats.open_artworks,
@@ -331,7 +348,11 @@ export async function fetchPartnerOverview() {
       location: board.location,
       lat: board.lat,
       lng: board.lng,
+      size: board.size,
+      pricePerWeek: board.price_per_week,
       isActive: board.is_active,
+      channel: board.channel || 'online',
+      underMaintenance: board.under_maintenance ?? false,
       occupied: board.occupied,
       currentBooking: board.current_booking
         ? {
@@ -342,6 +363,12 @@ export async function fetchPartnerOverview() {
           }
         : null,
       nextAvailableFrom: board.next_available_from,
+    })),
+    activity: (activity || []).map((item) => ({
+      type: item.type,
+      title: item.title,
+      detail: item.detail,
+      at: item.at,
     })),
   };
 }
@@ -458,6 +485,12 @@ function mapPartnerBooking(booking) {
     status: booking.status,
     source: booking.source || 'app',
     payment: booking.payment ? mapPayment(booking.payment) : null,
+    stages: (booking.stages || []).map((stage) => ({
+      stage: stage.stage,
+      substatus: stage.substatus,
+      assignedTo: stage.assigned_to,
+      completedAt: stage.completed_at,
+    })),
     createdAt: booking.created_at,
   };
 }
@@ -470,6 +503,164 @@ export async function fetchPartnerBookings(params = {}) {
 export async function createOfflineBooking(payload) {
   const { data } = await apiFetch('/api/partner/offline-bookings', { method: 'POST', body: JSON.stringify(payload) });
   return mapPartnerBooking(data);
+}
+
+// ---- Booking pipeline (the ERP's 7-stage package-tracking view) ----
+
+export async function fetchPartnerBooking(id) {
+  const { data, payments } = await apiFetch(`/api/partner/bookings/${id}`);
+  return { booking: mapPartnerBooking(data), payments: (payments || []).map(mapPayment) };
+}
+
+function mapPipelineStage(stage) {
+  return {
+    stage: stage.stage,
+    label: stage.label,
+    applicable: stage.applicable,
+    substatuses: stage.substatuses || [],
+    substatus: stage.substatus,
+    note: stage.note,
+    photos: stage.photos || [],
+    assignedTo: stage.assigned_to || null,
+    completedAt: stage.completed_at,
+  };
+}
+
+export async function fetchBookingPipeline(bookingId) {
+  const { stages, team } = await apiFetch(`/api/partner/bookings/${bookingId}/pipeline`);
+  return { stages: stages.map(mapPipelineStage), team: team || [] };
+}
+
+// Partial update: only append the fields the caller actually set. FormData
+// throughout because stages accept photo uploads.
+export async function updateBookingStage(bookingId, stage, { completed, substatus, note, assignedTo, photos } = {}) {
+  const form = new FormData();
+  if (completed !== undefined) form.append('completed', completed ? '1' : '0');
+  if (substatus !== undefined) form.append('substatus', substatus ?? '');
+  if (note !== undefined) form.append('note', note ?? '');
+  if (assignedTo !== undefined) form.append('assigned_to', assignedTo ?? '');
+  (photos || []).forEach((file) => form.append('photos[]', file));
+
+  const { stages } = await apiFetch(`/api/partner/bookings/${bookingId}/pipeline/${stage}`, {
+    method: 'POST',
+    body: form,
+  });
+  return stages.map(mapPipelineStage);
+}
+
+export async function fetchPartnerAnalytics() {
+  const data = await apiFetch('/api/partner/analytics');
+  return {
+    stats: {
+      occupancyRate: data.stats.occupancy_rate,
+      avgDurationDays: data.stats.avg_duration_days,
+      avgLeadTimeDays: data.stats.avg_lead_time_days,
+      conversionRate: data.stats.conversion_rate,
+      appRevenue: data.stats.app_revenue,
+      offlineRevenue: data.stats.offline_revenue,
+    },
+    revenueByMonth: data.revenue_by_month,
+    revenueByBillboard: data.revenue_by_billboard,
+    mostBookedLocations: data.most_booked_locations,
+    insights: data.insights,
+  };
+}
+
+export async function fetchPartnerContactDetail(id) {
+  const { contact, bookings, summary } = await apiFetch(`/api/partner/contacts/${id}`);
+  return {
+    contact: contact.data ?? contact,
+    bookings: (bookings.data ?? bookings).map(mapPartnerBooking),
+    summary: {
+      revenue: summary.revenue,
+      currentCampaigns: summary.current_campaigns,
+      pastCampaigns: summary.past_campaigns,
+      outstanding: summary.outstanding,
+    },
+  };
+}
+
+// ---- Chat Centre (one conversation per booking) ----
+
+function mapChatMessage(message) {
+  return {
+    id: message.id,
+    body: message.body,
+    attachments: message.attachments || [],
+    sender: message.sender?.name || null,
+    fromCustomer: message.from_customer,
+    mine: message.mine,
+    createdAt: message.created_at,
+  };
+}
+
+function buildMessageForm({ body, attachments }) {
+  const form = new FormData();
+  if (body) form.append('body', body);
+  (attachments || []).forEach((file) => form.append('attachments[]', file));
+  return form;
+}
+
+export async function fetchPartnerChats() {
+  const { data } = await apiFetch('/api/partner/chats');
+  return data.map((chat) => ({
+    bookingId: chat.booking_id,
+    billboard: chat.billboard,
+    advertiser: chat.advertiser,
+    source: chat.source,
+    messagesCount: chat.messages_count,
+    latest: chat.latest
+      ? { body: chat.latest.body, fromCustomer: chat.latest.from_customer, at: chat.latest.at }
+      : null,
+  }));
+}
+
+export async function fetchPartnerChatMessages(bookingId) {
+  const { data } = await apiFetch(`/api/partner/bookings/${bookingId}/messages`);
+  return data.map(mapChatMessage);
+}
+
+export async function sendPartnerChatMessage(bookingId, payload) {
+  const { data } = await apiFetch(`/api/partner/bookings/${bookingId}/messages`, {
+    method: 'POST',
+    body: buildMessageForm(payload),
+  });
+  return mapChatMessage(data);
+}
+
+export async function fetchMyChats() {
+  const { data } = await apiFetch('/api/my/chats');
+  return data.map((chat) => ({
+    bookingId: chat.booking_id,
+    billboard: chat.billboard,
+    company: chat.company,
+    latest: chat.latest
+      ? { body: chat.latest.body, fromCustomer: chat.latest.from_customer, at: chat.latest.at }
+      : null,
+  }));
+}
+
+export async function fetchBookingMessages(bookingId) {
+  const { data } = await apiFetch(`/api/bookings/${bookingId}/messages`);
+  return data.map(mapChatMessage);
+}
+
+export async function sendBookingMessage(bookingId, payload) {
+  const { data } = await apiFetch(`/api/bookings/${bookingId}/messages`, {
+    method: 'POST',
+    body: buildMessageForm(payload),
+  });
+  return mapChatMessage(data);
+}
+
+export async function fetchPartnerReminders() {
+  const { data } = await apiFetch('/api/partner/reminders');
+  return data.map((item) => ({
+    type: item.type,
+    bookingId: item.booking_id,
+    title: item.title,
+    detail: item.detail,
+  }));
 }
 
 // ---- Campaign progress updates (partner side: post the Glovo-style timeline) ----
@@ -495,6 +686,25 @@ export async function createPartnerBookingUpdate(bookingId, { stage, message, re
 
 export async function deletePartnerBookingUpdate(updateId) {
   await apiFetch(`/api/partner/booking-updates/${updateId}`, { method: 'DELETE' });
+}
+
+// ---- Workspace settings (owner-only: pricing, lead times, payout) ----
+
+export async function fetchPartnerSettings() {
+  const { data } = await apiFetch('/api/partner/settings');
+  return data;
+}
+
+export async function updatePartnerSettings(payload) {
+  const { data } = await apiFetch('/api/partner/settings', { method: 'PUT', body: JSON.stringify(payload) });
+  return data;
+}
+
+export async function uploadPartnerLogo(file) {
+  const form = new FormData();
+  form.append('logo', file);
+  const { data } = await apiFetch('/api/partner/settings/logo', { method: 'POST', body: form });
+  return data;
 }
 
 // ---- Team management (owner creates staff logins; staff never self-register) ----

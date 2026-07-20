@@ -232,7 +232,7 @@ export default function PartnerJobsPage() {
                     <button
                       type="button"
                       onClick={() => handleStatusChange(order, next.status)}
-                      className="rounded-full bg-forest px-4 py-2 text-xs font-bold uppercase tracking-wide text-cream transition hover:bg-forest-soft"
+                      className="rounded-full bg-forest px-4 py-2 text-xs font-semibold text-cream transition hover:bg-forest-soft"
                     >
                       {next.label}
                     </button>

@@ -4,23 +4,31 @@ import NotificationBell from './NotificationBell';
 
 const NAV_ITEMS = [
   { to: '/partner', end: true, label: 'Overview', icon: MapPinIcon },
+  { to: '/partner/bookings', label: 'Bookings', icon: ClipboardIcon },
   { to: '/partner/availability', label: 'Availability', icon: CalendarIcon },
   { to: '/partner/crm', label: 'Clients', icon: PeopleIcon },
   { to: '/partner/artwork', label: 'Artwork', icon: PaletteIcon },
   { to: '/partner/jobs', label: 'Jobs', icon: WrenchIcon },
+  { to: '/partner/chat', label: 'Chat', icon: ChatIcon },
   { to: '/partner/sync', label: 'Sync', icon: SyncIcon },
+  { to: '/partner/analytics', label: 'Analytics', icon: ChartIcon },
   // Team is owner-only: staff can't mint or remove logins.
   { to: '/partner/team', label: 'Team', icon: TeamIcon, ownerOnly: true },
+  { to: '/partner/settings', label: 'Settings', icon: GearIcon, ownerOnly: true },
 ];
 
 const PAGE_TITLES = {
   '/partner': 'Overview',
+  '/partner/bookings': 'Bookings',
   '/partner/availability': 'Availability',
   '/partner/crm': 'Client CRM',
   '/partner/artwork': 'Artwork studio',
   '/partner/jobs': 'Print & install jobs',
   '/partner/sync': 'Booking sync',
+  '/partner/analytics': 'Analytics',
+  '/partner/chat': 'Chat centre',
   '/partner/team': 'Team accounts',
+  '/partner/settings': 'Settings',
 };
 
 /**
@@ -31,7 +39,9 @@ const PAGE_TITLES = {
 export default function PartnerLayout() {
   const { user } = useAuth();
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] || 'Tangazaa Partner';
+  const title =
+    PAGE_TITLES[location.pathname] ||
+    (location.pathname.startsWith('/partner/bookings/') ? 'Booking details' : 'Tangazaa Partner');
   const navItems = NAV_ITEMS.filter((item) => !item.ownerOnly || user?.role !== 'staff');
 
   const navLinkClass = ({ isActive }) =>
@@ -120,6 +130,32 @@ function MapPinIcon() {
   );
 }
 
+function ChatIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M21 12a8 8 0 0 1-8 8H4l1.5-3.5A8 8 0 1 1 21 12z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.5 11h7M8.5 14h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChartIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 20V10M10 20V4M16 20v-8M21 20H3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ClipboardIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="5" y="4" width="14" height="18" rx="2" />
+      <path d="M9 4a3 3 0 0 1 6 0M9 10h6M9 14h6M9 18h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CalendarIcon() {
   return (
     <svg {...iconProps}>
@@ -162,6 +198,15 @@ function WrenchIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.07-.4.1-.8.1-1.2z" strokeLinejoin="round" />
     </svg>
   );
 }

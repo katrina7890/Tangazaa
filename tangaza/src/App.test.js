@@ -20,13 +20,13 @@ beforeEach(() => {
 test('renders the landing page by default', async () => {
   render(<App />);
   expect(screen.getByRole('link', { name: 'TANGAZAA' })).toBeInTheDocument();
-  expect(await screen.findByText(/book the right billboard/i)).toBeInTheDocument();
+  expect(await screen.findByText(/the right billboard/i)).toBeInTheDocument();
   expect(screen.getByText(/browse billboards/i)).toBeInTheDocument();
 });
 
 test('shows a sign-in link when logged out', async () => {
   render(<App />);
-  expect(await screen.findByText('SIGN IN')).toBeInTheDocument();
+  expect(await screen.findByText(/sign in/i)).toBeInTheDocument();
 });
 
 test('the hero CTA navigates to the map browse page', async () => {

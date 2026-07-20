@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { fetchBookingProgress, fetchMyBookings } from '../api';
+import { fetchBookingMessages, fetchBookingProgress, fetchMyBookings, sendBookingMessage } from '../api';
+import ChatThread from '../components/chat/ChatThread';
 import DashboardHero from '../components/DashboardHero';
 import PaymentStatusBadge from '../components/PaymentStatusBadge';
 import CampaignTimeline from '../components/progress/CampaignTimeline';
@@ -59,7 +60,7 @@ export default function BookingProgressPage() {
       >
         <Link
           to="/dashboard"
-          className="group inline-flex items-center gap-2 rounded-full border border-gold/60 px-5 py-2.5 text-sm font-bold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-forest"
+          className="group inline-flex items-center gap-2 rounded-full border border-gold/60 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold hover:text-forest-deep"
         >
           <BackIcon />
           My Campaigns
@@ -72,7 +73,7 @@ export default function BookingProgressPage() {
             <p className="text-stone-600">{error}</p>
             <Link
               to="/dashboard"
-              className="mt-4 inline-block rounded-full bg-gold px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-forest transition hover:bg-gold-soft"
+              className="mt-4 inline-block rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
             >
               Back to my campaigns
             </Link>
@@ -114,11 +115,32 @@ export default function BookingProgressPage() {
                 </h2>
                 <CampaignTimeline updates={updates} onReacted={handleReacted} />
               </section>
+
+              {/* Direct line to the billboard company */}
+              <section className="mt-8 rounded-3xl border border-sand bg-white p-6 shadow-sm sm:p-8">
+                <h2 className="mb-4 flex items-center gap-2 font-serif text-xl font-semibold text-forest">
+                  <span className="h-5 w-1 rounded-full bg-gold" />
+                  Messages
+                </h2>
+                <BookingChat bookingId={booking.id} />
+              </section>
             </>
           )
         )}
       </div>
     </div>
+  );
+}
+
+function BookingChat({ bookingId }) {
+  const fetchMessages = useCallback(() => fetchBookingMessages(bookingId), [bookingId]);
+  const sendMessage = useCallback((payload) => sendBookingMessage(bookingId, payload), [bookingId]);
+  return (
+    <ChatThread
+      fetchMessages={fetchMessages}
+      sendMessage={sendMessage}
+      emptyHint="Questions about your campaign? Message the billboard team directly — they're notified instantly."
+    />
   );
 }
 
