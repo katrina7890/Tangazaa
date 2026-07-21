@@ -95,7 +95,7 @@ export default function ChatThread({ fetchMessages, sendMessage, emptyHint }) {
         )}
         {error && <p className="mb-1.5 text-xs font-medium text-red-600">{error}</p>}
         <div className="flex items-end gap-2">
-          <label className="cursor-pointer rounded-full border border-sand p-2.5 text-stone-500 transition hover:border-gold hover:text-gold-dark">
+          <label className="cursor-pointer rounded-full border border-sand bg-white p-2.5 text-stone-500 transition hover:border-gold hover:text-gold-dark">
             <input
               ref={fileRef}
               type="file"
@@ -111,12 +111,12 @@ export default function ChatThread({ fetchMessages, sendMessage, emptyHint }) {
             value={body}
             onChange={(event) => setBody(event.target.value)}
             placeholder="Write a message…"
-            className="max-h-28 flex-1 resize-y rounded-2xl border border-sand px-3.5 py-2.5 text-sm outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
+            className="max-h-28 flex-1 resize-y rounded-2xl border border-sand bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-stone-400 outline-none focus:border-gold focus:ring-2 focus:ring-gold/30"
           />
           <button
             type="submit"
             disabled={sending || (!body.trim() && attachments.length === 0)}
-            className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft disabled:opacity-50"
+            className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gold-soft disabled:opacity-50"
           >
             {sending ? '…' : 'Send'}
           </button>

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\AdminPermission;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -53,10 +54,33 @@ class UserFactory extends Factory
         ]);
     }
 
+    /**
+     * A full-power administrator. Super Admin by default so tests exercising
+     * admin endpoints don't each have to enumerate permissions; use
+     * `limitedAdmin()` when the point of the test *is* the permission check.
+     */
     public function admin(): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Admin,
+            'is_super_admin' => true,
+        ]);
+    }
+
+    /**
+     * An administrator holding only the given granular permissions.
+     *
+     * @param  array<int, AdminPermission|string>  $permissions
+     */
+    public function limitedAdmin(array $permissions = []): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::Admin,
+            'is_super_admin' => false,
+            'admin_permissions' => array_map(
+                fn ($permission) => $permission instanceof AdminPermission ? $permission->value : $permission,
+                $permissions,
+            ),
         ]);
     }
 

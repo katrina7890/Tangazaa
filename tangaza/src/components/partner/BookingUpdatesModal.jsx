@@ -77,7 +77,7 @@ export default function BookingUpdatesModal({ booking, onClose }) {
       <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-3 bg-forest px-6 py-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold">Progress updates</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-coral">Progress updates</p>
             <h2 className="mt-1 font-serif text-lg font-semibold text-cream">{booking.billboard?.title}</h2>
             <p className="text-xs text-cream/70">
               {advertiser ? `${advertiser} · ` : ''}
@@ -220,7 +220,7 @@ export default function BookingUpdatesModal({ booking, onClose }) {
                 type="checkbox"
                 checked={form.requiresApproval}
                 onChange={(event) => setForm({ ...form, requiresApproval: event.target.checked })}
-                className="h-4 w-4 rounded border-sand accent-[#d6a23e]"
+                className="h-4 w-4 rounded border-sand accent-[#8A3DF0]"
               />
               Ask the client to approve before we proceed
             </label>

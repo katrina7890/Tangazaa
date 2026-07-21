@@ -121,7 +121,7 @@ use `User::factory()->admin()->create([...])` or `php artisan tinker` — there'
 | PATCH | `/bookings/{id}/cancel` | customer (own) | Customer cancels their own booking (`BookingController@cancel`); 403 if it isn't theirs, 422 if already cancelled. Distinct from the admin cancel route below. |
 | POST | `/bookings/{id}/pay` | customer (own) | `PaymentController@initialize` — (re)opens a simulated Paystack checkout for a `pending` booking; 403 if not theirs, 422 if the booking isn't pending. Reuses an existing pending `payment` so repeated clicks don't duplicate transactions. Returns a `PaymentResource`. |
 | POST | `/payments/{reference}/verify` | customer (own) | `PaymentController@verify` — settles a checkout. Body `{ "success": bool }` (default `true`; `false` simulates a decline). On success re-checks date overlap, marks the payment `success` + booking `confirmed`; on conflict marks both failed/cancelled with a 422. Returns the updated `BookingResource` plus the `payment`. |
-| GET | `/admin/stats` | admin only | Companies/billboards/customers/bookings counts, revenue, recent signups, suspicious-login count. |
+| GET | `/admin/stats` | admin only | Companies/billboards/customers/bookings counts, revenue, recent signups, suspicious-login count. Also feeds the Overview's charts: `booking_activity` + `revenue_activity` (7-day series, oldest first; revenue keyed off `payments.paid_at` so it means "what settled"), `approval_rate` (confirmed ÷ total bookings), and `attention` (review-queue counts: flagged logins, locked accounts, suspended accounts, pending bookings). **Aggregates only** — this route has no `permission:` guard, so per-record data (audit entries, login rows) deliberately stays on its own `audit.view`-gated routes. The 7-day series are grouped in PHP, not SQL, because date functions differ between SQLite and Postgres. |
 | GET | `/admin/login-attempts` | admin only | Last 50 login attempts (success/fail, IP, flagged reason). |
 | GET | `/admin/users` | admin only | Paginated, `?search=` (name/email/company) and `?role=customer\|owner\|admin` filters. `AdminUserController@index`. |
 | PATCH | `/admin/users/{id}/toggle-suspension` | admin only | Flips `is_suspended`; 422 if targeting your own account (`AdminUserController@toggleSuspension`). |
@@ -164,6 +164,47 @@ controller/route/response contract shouldn't need to change. `payments` table: `
 (`App\Enums\PaymentStatus`: `pending`/`success`/`failed`), `paid_at`. A `Booking hasMany Payment`,
 with a `latestPayment` relation for list views. `verify` is idempotent (re-verifying a settled
 payment is a no-op).
+
+### Admin console security (Phase 1 of the admin-dashboard PRD, as of 2026-07-20)
+
+- **RBAC** — `App\Enums\AdminPermission` (12 granular capabilities, e.g. `users.manage`,
+  `finance.manage`, `audit.view`), stored per-admin in `users.admin_permissions` (JSON), plus
+  `users.is_super_admin` (holds everything implicitly). Enforced by
+  `App\Http\Middleware\EnsureAdminPermission` aliased as **`permission:`** — every admin route
+  names the capability it needs; `role:admin` alone is never sufficient. Unknown permission
+  strings **fail closed** (403), so a typo in a route guard can't silently open an endpoint.
+  `User::hasAdminPermission()` also refuses suspended accounts.
+- **Privilege-escalation guards:** reading the admin roster needs `admins.manage`, but *granting*
+  anything requires `is_super_admin` — otherwise an admin with `admins.manage` could grant
+  themselves finance powers. Admins can't edit their own permissions/super status, the **last
+  Super Admin can't be demoted**, and only a Super Admin can suspend another admin.
+- **Immutable audit trail** — `audit_logs` table (no `updated_at`; actor name/email denormalised
+  so entries survive account deletion; `changes` JSON holds a `{field: {from, to}}` diff, plus IP
+  and user agent). `AuditLog` throws on `updating`/`deleting`, so tampering fails loudly.
+  Written by `App\Services\Security\AuditLogger` from user suspend/restore/unlock, admin
+  create/permission/super changes, booking cancel, session revoke and account lockout.
+  `GET /admin/audit-logs` is read-only, filterable (action/actor/target/date/search) and
+  paginated — **there is deliberately no write or delete endpoint.**
+- **Brute-force protection** — `App\Actions\Auth\ApplyLoginLockout`: 5 failures in 15 min locks
+  `users.locked_until` for 15 min; a locked account is rejected *before* credentials are checked,
+  so the correct password won't open it. Cleared by a successful login, expiry, or
+  `PATCH /admin/users/{user}/unlock` (`users.manage`). Failed-login messages stay generic so they
+  never reveal whether an address exists.
+- **Rate limiting** — named limiters in `AppServiceProvider`: `login` (5/min per email+IP, 20/min
+  per IP), `register` (10/hour per IP), `admin` (120/min), `api` (300/min). Note the login
+  limiter and the lockout trip at similar counts — tests that target one disable the other.
+- **Session/device management** — session driver is `database`, so `GET /admin/sessions` lists the
+  acting admin's own sessions (scoped server-side to `auth()->id()`; only a SHA-256 fingerprint of
+  the session id is exposed) and `DELETE /admin/sessions/others` signs out every other device.
+- **SPA:** `AdminDashboardPage` gained **Access control** (permission matrix), **Audit log**
+  (filterable timeline) and **Security** (lockouts, devices, recent events) tabs. Panels degrade
+  gracefully to "you do not have permission" on 403 — the UI hides what you can't use, but the
+  server is the authority. Demo accounts: `admin@tangaza.test` (Super Admin),
+  `support@tangaza.test` (restricted: users/bookings/billboards view + bookings manage).
+- **Not yet built** (later phases): admin MFA, malware scanning on uploads, PDF/Excel export,
+  websocket notifications, the financial ledger (blocked on a real payment gateway — Paystack is
+  still simulated), collapsible sidebar/global search shell, and soft-delete/restore beyond the
+  existing suspend flow.
 
 **Account suspension:** `users.is_suspended` (boolean, default `false`). A suspended user's
 `POST /login` is rejected with a 422 on the `email` field (checked in `AuthController::login`
@@ -239,9 +280,9 @@ for staff (money is owner-only); and **team management** (`GET|POST /partner/tea
   (in `BookingController`): `GET|POST /bookings/{id}/messages`. New messages notify the other
   side in-app (`chat.message`). `ChatMessageResource` returns `mine` per-requester so bubbles
   align. Customer inbox: `GET /my/chats` (one conversation per booking). SPA: `/partner/chat`
-  (`PartnerChatPage` — conversation list + thread), the customer's `/messages` inbox
-  (`CustomerMessagesPage`, role customer, reached from the Header account menu; dark-backdrop
-  route), and a Messages card on the customer's `BookingProgressPage`; all use shared
+  (`PartnerChatPage` — conversation list + thread), the customer's `/dashboard/messages` inbox
+  (`pages/customer/CustomerMessagesPage.jsx`, reached from the sidebar or the Header account menu),
+  and a Messages card on the customer's `BookingProgressPage`; all use shared
   `components/chat/ChatThread.jsx` (thread + composer with ≤4 image attachments). No polling —
   threads refresh on load/send; real-time (websockets) is future infra.
 - **Artwork pipeline** — `artworks` table (`App\Enums\ArtworkStatus`:
@@ -321,6 +362,79 @@ for staff (money is owner-only); and **team management** (`GET|POST /partner/tea
   dashboard card badge. `DatabaseSeeder` seeds a mid-flight demo timeline (booking for
   `customer@tangaza.test` ending on an unanswered production go-ahead).
 
+### Transactional email + customer documents (as of 2026-07-21)
+
+**Email verification is a soft nudge, never a gate.** `User` now implements `MustVerifyEmail`, but
+**no route is behind the `verified` middleware** — an unverified customer can browse, book and pay
+exactly as before. Registration queues a `VerifyEmailMail`; the SPA shows a dismissible banner in
+`CustomerLayout` with a resend button. Don't "finish the job" by adding `verified` to routes unless
+that's explicitly asked for — it would lock out every seeded demo account and break the demo if a
+mail provider ever fails.
+
+- `GET /api/email/verify/{id}/{hash}` (**named `verification.verify`**, `signed` + throttled) is
+  deliberately **not** behind `auth:sanctum` — the link is routinely opened in a different browser
+  or a webmail preview from the one that signed up, so the signature plus the SHA-1 email hash is
+  the whole authentication story. It validates, marks verified, then `redirect()->away()`s to
+  `{frontend}/dashboard?verified=1|already|invalid`, which the banner reads.
+- `config('app.frontend_url')` (added to `config/app.php`) is the first entry of `FRONTEND_URLS`.
+  Every email links at the **SPA**, not the API — `env()` stays inside `config/`, as always.
+
+**Mailables** (all `ShouldQueue`, in `app/Mail/`): `VerifyEmailMail`, `BookingRequestedMail`,
+`PaymentReceiptMail` (attaches both PDFs), `CampaignManagerAssignedMail` (sets `replyTo` to the
+salesperson so replies reach a human, not the platform), `CampaignStageUpdateMail`,
+`BookingCancelledMail`. Views live in `resources/views/emails/`, built from the Blade components in
+`resources/views/components/mail/` (`layout`, `text`, `button`, `details`). Those are **table-based
+with inline styles on purpose** — Outlook ignores `<style>` blocks and flexbox entirely. The palette
+mirrors `tangaza/src/index.css`; keep the two in step.
+
+**Everything dispatches through `App\Services\Mail\CustomerMailer`** — never call `Mail::to()` from a
+controller or action directly. It centralises three things every call site would otherwise repeat:
+offline bookings have **no `customer` user at all** (a CRM contact instead, so the send must no-op),
+opt-outs are per-topic, and a mail failure is caught and logged so it can **never roll back the
+business action that triggered it** — a paid booking is still paid if SMTP is down.
+
+Send points: `AuthController@register` → verification · `CreateBooking` → requested ·
+`PaystackService::verify` → receipt + contract · both cancel routes (customer and admin) →
+cancelled · `Partner\BookingUpdateController@store` → stage update ·
+`Partner\AccountManagerController` → manager introduction.
+
+**Opt-outs:** `users.email_preferences` (JSON, keyed by `App\Enums\EmailTopic`). **Null means opted
+in**, so existing accounts are never silenced. `User::wantsEmail()` is the only reader. Payment
+receipts and verification deliberately have **no topic** and ignore preferences — one is a financial
+record, the other account security.
+
+**Campaign manager** — `bookings.account_manager_id` (+ `account_manager_assigned_at`) names the
+salesperson who owns a campaign, answering the customer's biggest post-payment question ("who do I
+call?"). Set via `PATCH /partner/bookings/{booking}/account-manager` (`AccountManagerController`,
+`AssignAccountManagerRequest` restricts the id to the workspace — owner or their own staff — so a
+company can't put a rival's employee in front of their client). Only a **real change** emails the
+client, so re-saving the same person doesn't re-introduce them. Surfaced on the customer's booking
+cards and progress page, and edited from `PartnerBookingDetailPage`.
+
+**Documents** — receipts and contracts are **generated on demand, never stored**: they're pure
+functions of the booking/payment rows, so there's nothing to keep in sync and nothing to lose when
+Render recycles its ephemeral disk. `App\Services\Documents\DocumentService` renders
+`resources/views/documents/{receipt,contract}.blade.php` via **`barryvdh/laravel-dompdf`** (the one
+new Composer package). dompdf supports only a conservative CSS subset — block layout and tables, no
+flex/grid, built-in fonts only. Contract clause text is a plain-language summary of what the platform
+actually enforces; swap `DocumentService::CLAUSES` for counsel-reviewed terms without touching the
+pipeline. `Booking::contractNumber()` derives `TGZ-C-000123` from the id rather than storing it, so
+it can't drift. Endpoints: `GET /my/documents` (derived list), `GET /bookings/{booking}/documents/contract`
+(404 until confirmed), `GET /payments/{reference}/receipt` — all 403 on someone else's booking.
+
+**Other new customer endpoints:** `PUT /profile` (changing the email **resets verification** and
+re-sends), `GET /profile/email-topics`, `POST /email/verification-notification` (throttled),
+`GET /my/payments` (every attempt including failed/superseded — unlike a booking's `payment` field,
+which is only the latest).
+
+**⚠️ Local dev: `QUEUE_CONNECTION=database`, so queued mail sits in the `jobs` table until you run
+`php artisan queue:work`.** Nothing appears in `storage/logs/laravel.log` (the `log` mailer) until a
+worker drains it — this looks exactly like "email is broken" and isn't. Render sets
+`QUEUE_CONNECTION=sync`, so there mail sends inline (and PDF rendering happens in the request —
+~300ms on payment verification, which is why `CustomerMailer` swallows failures). **Render also
+still sets `MAIL_MAILER=log`, so no mail actually leaves the demo** — point `MAIL_*` at a real
+provider (Resend/Postmark/Mailgun/SMTP) when that's wanted; no code changes are needed.
+
 ### Common commands (run from `api/`)
 
 | Task | Command |
@@ -366,18 +480,48 @@ around the city rather than scattering across Kenya.
 - **Styling:** Tailwind CSS v4, configured via `@theme` in `src/index.css` (no `tailwind.config.js`
   — that's the v4 way). Custom tokens: `cream`/`sand`/`sand-dark`/`campaign-green` colors plus
   `forest`/`forest-deep`/`forest-soft` and `gold`/`gold-soft`/`gold-dark`.
-  **Palette:** the forest-green + gold luxury scheme — `forest`/`forest-deep`/`forest-soft`
-  dark greens, `gold`/`gold-soft` accent (`gold-dark` is the WCAG-safe variant for text on
-  light), warm cream/sand surfaces. **Type & component style (as of 2026-07-18):** modeled on
-  vitorra.org's editorial look at the owner's request, **but keeping Tangazaa's own colors**
-  (a charcoal/brass palette was tried and explicitly reverted — don't reintroduce it).
-  `font-serif`/`font-display` are both **Cormorant Garamond** (bold, tight tracking — a global
-  `.font-serif/.font-display { letter-spacing: -0.02em }` rule lives in `index.css`); body is
-  **DM Sans** (loaded in `public/index.html`). House style: sentence-case serif headlines
-  (often ending in a period), 11px bold uppercase `tracking-[0.12em]` eyebrow labels, flat
-  sentence-case pill buttons (`font-semibold`, no uppercase/shadow/hover-lift), hairline
-  borders over drop shadows. Earlier type schemes (Lovable's `violet-*` accent, then
-  Playfair/Inter/Archivo Black) are gone — don't reintroduce them.
+  **Palette — "Tangazaa Nightfall" (applied 2026-07-21):** taken from the *Tangazaa Landing Page*
+  mockup in the claude.ai/design project. Warm paper `#f8ecdc` (`cream`) / `#e9e3d6` (`sand`),
+  ink `#241c16` (`forest`) with `#17110d` (`forest-deep`), Electric Purple `#8a3df0` (`gold`) as
+  the action accent, and **`blush` `#e01f66`** — the far end of the signature purple→pink gradient.
+  Pastel context surfaces `mint`/`coral`/`sustain` keep their readable ink partners
+  `mint-ink` `#16704a` / `coral-ink` `#a3234f`. **The token names are historical on purpose** —
+  hundreds of classes reference `cream`/`forest`/`gold`, so re-skinning is a values-only change
+  in `index.css`; don't rename them.
+  **⚠️ Every pair here was contrast-checked to AA (4.5:1) and the values are load-bearing:**
+  - `blush` is deliberately a shade deeper than the mockup's own `#ff4f8b`, which only reaches
+    **3.11:1** against white and would have made every gradient button label fail. Don't "restore"
+    the mockup value.
+  - `mint-ink`/`coral-ink` were darkened from the previous theme for the same reason — the naive
+    mockup mapping put the customer dashboard's Committed-spend figure at **2.79:1**. It now
+    measures 5.27:1 in the browser.
+  - Purple is dark, so anything on `bg-gold` needs `text-white`, and purple TEXT is unreadable on
+    the ink sections — on dark surfaces use `text-coral`; on light surfaces use `text-gold-dark`.
+  - The signature gradient is `from-gold to-blush` (buttons, active nav, the wordmark chip).
+  **`map-dark:` variant** (defined in `index.css`) styles the browse map's floating UI —
+  `MapSearchBar` and `FilterPanel` — when the map's own style picker is set to **Dark**. It keys off
+  `data-map-theme` on `MapBrowsePage`'s root, **not** the OS colour scheme, because those panels sit
+  on top of the tiles. Satellite is deliberately not included yet; add
+  `[data-map-theme='satellite']` to the variant to cover it.
+  **Hex literals** that can't reference a token (Leaflet `pathOptions`, SVG `stopColor`, CSS
+  `conic-gradient`, `accent-[…]`) live in `admin/OverviewPanel`, `customer/ui.jsx`,
+  `CustomerOverviewPage`, `CustomerPaymentsPage`, `CustomerProfilePage`, `MapBrowsePage`,
+  `OwnerDashboardPage`, `partner/BookingUpdatesModal` and `PartnerOverviewPage#PIN_STATES` —
+  **grep for the old hex when re-skinning, they don't follow the tokens.**
+  **Type:** `font-display`/`font-serif` are **Archivo** (headlines heavy at `font-extrabold`/
+  `font-black`, `-0.03em` tracking); `font-sans` and `.font-editorial` are **Inter**. This theme
+  has no serif, so `.font-editorial` now reads as ordinary body text. The signature move is the
+  giant lowercase wordmark with the trailing "aa" in *italic* Archivo — see `.wordmark-display`
+  in `index.css`, used by the landing hero and the outlined "book" display type.
+  House style otherwise unchanged: 11px bold uppercase `tracking-[0.12em]` eyebrow labels, flat
+  sentence-case pill buttons, hairline borders over drop shadows.
+  **Keep `api/resources/views/components/mail/*` and `documents/*` in step** — the email and PDF
+  templates hardcode the same palette (they can't use Tailwind), and were updated with this theme.
+  **History:** replaced "Vesper Editorial" (`#fff5ea`/`#362d21`/`#7f30c3`, Epilogue + Newsreader,
+  2026-07-20), which replaced forest-green + gold with Cormorant/DM Sans (2026-07-18). Note
+  Archivo/Inter were previously retired and are now **deliberately back** — that older
+  "don't reintroduce" note no longer applies. Lovable `violet-*`, Playfair and charcoal+brass are
+  still gone.
 - **Routing:** `react-router-dom`, **pinned to v6** (not v7 — v7's `package.json` `exports` map
   isn't understood by react-scripts 5's bundled Jest 27 and breaks `npm test` with
   `Cannot find module 'react-router-dom'`, even though it works fine in the browser).
@@ -400,28 +544,87 @@ around the city rather than scattering across Kenya.
   per-developer (already gitignored by CRA's default `.gitignore`).
 - No state-management library or component UI kit is installed — plain `useState`/Context is
   enough so far. Don't add one speculatively; add it when a real screen needs it.
-- **Routes:** `/` is the public marketing landing page (`LandingPage`, hero + "Why Tangazaa"
-  features + closing CTA + contact footer — pulls a live billboard count from `/api/billboards`).
-  `/map` is the actual map-browse experience (what used to live at `/`). Internal links that mean
-  "go look at billboards" point to `/map`, not `/` — don't conflate the two.
-- The hero's background is a real photo (`src/assets/billboard-hero.jpg`, user-supplied) under a
-  `bg-violet-950/80` overlay for text contrast — not a hotlinked/guessed external image URL. An
-  earlier hand-built SVG illustration (`BillboardScene`) was replaced by this and removed; don't
-  recreate it.
-- **Dashboards:** `CustomerDashboardPage` (`/dashboard`, role `customer`) shows the customer's
-  bookings — summary stat cards, a Leaflet map of their booked billboards' locations, and per-booking
-  cards (placeholder photo via `components/BillboardImage.jsx`, status badge, dates, total, a
-  **Cancel booking** action wired to `cancelMyBooking`, and a **Complete payment** button on any
-  still-`pending` booking that opens the `components/payments/PaymentModal.jsx` checkout via
-  `initializePayment`). The book-and-pay entry point is on `BillboardDetailPage` ("Book & Pay" →
-  `createBooking` returns the booking + an open `payment` → same `PaymentModal`). `OwnerDashboardPage` (`/owner`, role
+- **Routes:** `/` is the public marketing landing page (`LandingPage`), `/map` is the actual
+  map-browse experience (what used to live at `/`). Internal links that mean "go look at
+  billboards" point to `/map`, not `/` — don't conflate the two.
+- **Landing page (rebuilt 2026-07-21)** from the *Tangazaa Landing Page* mockup in the
+  claude.ai/design project (imported via `DesignSync`). Sections: photo hero + giant italic
+  wordmark → philosophy w/ phone mockup → verified-boards trio → "one platform" w/ outlined
+  `book` display type → 3-column footer. It pulls a live billboard count from `/api/billboards`
+  for the "N verified boards live across Nairobi" caption.
+  - **Photography lives in `tangaza/public/`, named for the slot it fills:**
+    `Nairobi Skyine at dusk.jpg` (hero — **the filename is misspelled on disk; that's the real
+    path, don't "fix" it**), `Broad daylight.jpg` (verified boards), `site walk.jpg` (site walk),
+    `map-billboard.jpg` (inside the phone mockup). They're referenced via `process.env.PUBLIC_URL`
+    and the spaces are URL-encoded by the browser — verified serving 200 `image/jpeg`.
+  - **⚠️ The hero photo is ~2.6 MB**, which is the page's LCP. It carries `fetchPriority="high"`
+    (camelCase — React rejects `fetchpriority`), but it really wants compressing to ~300 KB or a
+    `<picture>` with a WebP source. Not done yet.
+  - The design's flat "Live map" / "Booking calendar" / "Reach analytics" colour blocks are
+    rendered as **real things** — a non-interactive Leaflet map of live inventory, a real
+    current-month grid, and a bar chart. The Leaflet instance is `pointer-events-none`; the
+    browsable map is at `/map`.
+  - The mockup's Pricing / Blog / Legal nav and footer links were **deliberately dropped** rather
+    than shipped as dead ends; what remains anchors to `#about` / `#how-it-works` or real routes.
+  - `App.test.js` asserts against this copy. Note the strapline "Outdoor advertising, booked in
+    minutes" appears **twice by design** (hero eyebrow + footer), and both the footer and the
+    header link to `/login` — tests must scope by role/count, not bare `getByText`.
+  - An earlier hand-built SVG illustration (`BillboardScene`) and the old
+    `src/assets/billboard-hero.jpg` hero treatment were replaced; `billboard-hero.jpg` is still
+    used as the `AuthLayout` fallback, so don't delete it.
+- **Customer workspace (`/dashboard/*`, role `customer`, restructured 2026-07-21):** nested routes
+  under `components/customer/CustomerLayout.jsx` — the **same side-menu shell as Tangazaa Partner
+  and the admin console** (obsidian sidebar on desktop, bottom tab bar on mobile, top band with the
+  section title, `NotificationBell`), so all three sides of the marketplace navigate identically.
+  Sections in `pages/customer/`: **Overview** (`CustomerOverviewPage` — stat cards, a "needs your
+  attention" list of unpaid bookings and unanswered go-aheads, ending-soon campaigns, the Leaflet
+  map, and the three most recent booking cards), **Campaigns** (`CustomerCampaignsPage` — all
+  bookings with status filter chips), **Messages** (`CustomerMessagesPage`), **Payments**
+  (`CustomerPaymentsPage` — outstanding balance + full transaction table), **Documents**
+  (`CustomerDocumentsPage` — contract/receipt PDF downloads), **Profile** (`CustomerProfilePage` —
+  details, verification state, per-topic email toggles). `BookingProgressPage` is now nested too, at
+  `/dashboard/bookings/:id/progress`.
+  - **Bookings are fetched once in `CustomerLayout` and shared via `<Outlet context>`**
+    (`useCustomerData()`), which also owns the `PaymentModal` and the pay/cancel handlers — so
+    switching sections is instant and paying updates every view at once. New sections should read
+    from that context rather than calling `fetchMyBookings` again.
+  - The old flat URLs `/messages` and `/bookings/:id/progress` are **kept as redirects** — they're
+    linked from already-sent emails and in-app notifications. Don't delete them.
+  - **The signed-in user object is raw snake_case** (`/api/user` returns the model, so it's
+    `company_name`, `email_verified_at`, `phone`). Two pages previously read `user.companyName`,
+    which silently fell through to `user.name`; fixed in the restructure. `AuthContext` now also
+    exposes `refreshUser()` and `setUser` (the verification banner needs the former, because
+    confirming happens in another tab).
+  - Shared primitives are in `components/customer/ui.jsx` and `components/customer/BookingCard.jsx`
+    (the card is shared by Overview and Campaigns so the two can't drift).
+  The book-and-pay entry point is still on `BillboardDetailPage` ("Book & Pay" →
+  `createBooking` returns the booking + an open `payment` → same `PaymentModal`).
+- **Dashboards:** `OwnerDashboardPage` (`/owner`, role
   `owner`/`admin`) lists/creates/edits/deletes
   the current user's billboards (`components/owner/BillboardForm.jsx` — includes the **Available
   from** field), shows a Leaflet map of their billboards plus a "next available" badge per card,
   and opens an availability view per billboard (`components/owner/BookingsModal.jsx` — a read-only
   `AvailabilityCalendar` + the bookings list). `AdminDashboardPage` (`/admin`, role `admin`)
-  is tabbed: **Overview** (stat cards, recent signups, login-attempt/suspicious-login feed — the
-  original read-only view), **Users** (`components/admin/UsersPanel.jsx` — search/role-filter,
+  was **remodelled on 2026-07-21 from the "2a — floating-panel" mockup** in the
+  `claude.ai/design` project *"Tangazaa admin dashboard mockups"* (imported via the `DesignSync`
+  tool). It no longer shares Partner's shell: the console is now **rounded panels floating on a
+  warm `bg-sand` canvas** — an obsidian sidebar *card* (sticky, gradient active state and CTA),
+  white `rounded-3xl` panels, and no dark top band. Consequences worth knowing:
+  - **`/admin` is deliberately NOT in `Header`'s `darkBackdropRoutes`** — the console opens on a
+    light canvas, so the wordmark must stay dark. Don't "fix" its absence.
+  - The mockup's own palette (Archivo/Inter, purple→pink `#7b3ce0`→`#ee5586`, pink/maroon chips)
+    was **adapted to the existing Vesper tokens**, not imported: gradients run `gold`→`coral-ink`,
+    chips use `coral`/`mint`/`sustain` with their ink variants, headings are Epilogue `font-black`.
+    CLAUDE.md's rule that Archivo/Inter stay retired still holds.
+  - The mockup's "+ New Booking" CTA became **Review security** (admins don't create bookings),
+    and its agenda/calendar panels became the real login feed and a 7-day activity strip.
+  - Partner and customer keep their own shells (`PartnerLayout`, `CustomerLayout`) and are
+    untouched — the floating-panel language is admin-only for now.
+  sections: **Overview** (`components/admin/OverviewPanel.jsx` — greeting hero, stat pills,
+  booking-activity wave, "needs review" queue, revenue bars + approval ring, and a right column
+  with the admin card / activity strip / recent signups / login feed; every panel is real data,
+  and the queue items navigate to the tab that can action them), **Users**
+  (`components/admin/UsersPanel.jsx` — search/role-filter,
   suspend/reactivate any user except yourself), **Billboards** (`components/admin/BillboardsPanel.jsx`
   — platform-wide list with owner info, activate/deactivate any billboard), **Bookings**
   (`components/admin/BookingsPanel.jsx` — platform-wide list, cancel any booking). All three panels
@@ -432,7 +635,9 @@ around the city rather than scattering across Kenya.
   `Header` shows a signed-in user's initials in a **gold avatar button that opens an account
   dropdown** (role/company line, a **Dashboard** link via `dashboardPathForRole`, a **Tangazaa
   Partner** link for owner/admin, and **Sign out**); it closes on outside-click, Escape, or
-  navigation. Guests see a "SIGN IN" link instead.
+  navigation. Guests see a "SIGN IN" link instead. `Header`'s `darkBackdropRoutes` is an exact-match
+  list plus **prefix** checks for `/partner`, `/dashboard` and `/bookings/` — nested shells need the
+  prefix, so adding a `/dashboard/*` section requires no Header change.
 - **Tangazaa Partner (`/partner/*`, roles owner/admin/staff, as of 2026-07-14):** the ERP
   workspace, nested react-router routes under `components/partner/PartnerLayout.jsx` — a
   forest-deep sidebar on desktop and a **bottom tab bar on mobile** (the installer-in-the-field
@@ -459,15 +664,16 @@ around the city rather than scattering across Kenya.
 - **Campaign progress tracker UI (as of 2026-07-17):** the customer dashboard's booking cards
   have a **Track progress** link (hidden on cancelled bookings) showing the latest stage label,
   or a pulsing gold **Action needed** badge when `pending_approvals > 0`. It goes to the
-  **full page** `pages/BookingProgressPage.jsx` at `/bookings/:id/progress` (role `customer`;
-  started as a modal, converted to a page the same day) — a forest `DashboardHero` + booking
-  summary card, then `components/progress/CampaignTimeline.jsx`: a Glovo-style vertical timeline
-  of the four fixed stages (`components/progress/stages.js`, mirrors `CampaignStage`) with the
-  company's updates, install photos, an inline **Yes — go ahead / Request changes** answer card
-  on approval requests, and **👍 Love it / Request changes** feedback on ordinary updates. There
-  is no single-booking API endpoint — the page fetches `/my/bookings` and picks its booking; the
-  dashboard's badge refreshes naturally on remount when the user navigates back. `Header` treats
-  `/bookings/*` as a dark-backdrop route. The company posts updates from `PartnerSyncPage` —
+  **full page** `pages/customer/BookingProgressPage.jsx`, nested in the customer shell at
+  `/dashboard/bookings/:id/progress` (started as a modal, became a page the same day, moved into
+  the sidebar shell on 2026-07-21) — a booking summary card, the assigned campaign manager's
+  contact details when there is one, then `components/progress/CampaignTimeline.jsx`: a Glovo-style
+  vertical timeline of the four fixed stages (`components/progress/stages.js`, mirrors
+  `CampaignStage`) with the company's updates, install photos, an inline **Yes — go ahead / Request
+  changes** answer card on approval requests, and **👍 Love it / Request changes** feedback on
+  ordinary updates. There is no single-booking API endpoint — the page fetches `/my/bookings` and
+  picks its booking; the dashboard's badge refreshes naturally on remount when the user navigates
+  back. The company posts updates from `PartnerSyncPage` —
   each booking row has a **Progress** button opening
   `components/partner/BookingUpdatesModal.jsx` (stage select, message, ≤4 photo uploads with
   previews, "ask the client to approve" checkbox, client-reaction badges, delete). `apiFetch`
@@ -582,6 +788,13 @@ around the city rather than scattering across Kenya.
 - **On backend deploy:** `php artisan migrate --force`, then
   `php artisan config:cache route:cache view:cache event:cache`.
 - **Runtime services:** queue worker / Horizon, scheduler (`php artisan schedule:run` via cron).
+  Render currently runs **neither** — it sets `QUEUE_CONNECTION=sync`, so queued Mailables send
+  inline on the request instead. That's fine at demo scale; if a worker is ever added, flip that
+  back to `database`. Locally the connection *is* `database`, so mail needs `php artisan queue:work`.
+- **Mail is not actually delivered anywhere yet** — both local `.env` and `render.yaml` set
+  `MAIL_MAILER=log`, so every transactional email is written to `storage/logs/laravel.log` rather
+  than sent. Point `MAIL_*` at a real provider (Resend/Postmark/Mailgun/SMTP) to go live; the
+  Mailables, templates and send points need no changes.
 - **Environments:** local dev only, plus a live demo deploy (as of 2026-07-07): the API on
   **Render** (`render.yaml` — Docker web service + free Postgres, blueprint-deployed), the SPA on
   **Vercel** (`tangaza/vercel.json`, static CRA build). No formal staging tier yet.

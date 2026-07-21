@@ -46,7 +46,7 @@ export default function PartnerLayout() {
 
   const navLinkClass = ({ isActive }) =>
     `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
-      isActive ? 'bg-gold text-forest shadow-sm' : 'text-cream/80 hover:bg-white/10 hover:text-cream'
+      isActive ? 'bg-gold text-white shadow-sm' : 'text-cream/80 hover:bg-white/10 hover:text-cream'
     }`;
 
   return (
@@ -55,7 +55,7 @@ export default function PartnerLayout() {
       <aside className="fixed bottom-0 left-0 top-0 z-[900] hidden w-60 flex-col bg-forest-deep pt-24 lg:flex">
         <div className="px-5 pb-6">
           <p className="font-display text-lg tracking-wide text-cream">
-            TANGAZAA<span className="text-gold"> PARTNER</span>
+            TANGAZAA<span className="text-coral"> PARTNER</span>
           </p>
           <p className="mt-1 truncate text-xs text-cream/60">{user?.company_name || user?.name}</p>
         </div>
@@ -78,7 +78,7 @@ export default function PartnerLayout() {
         <div className="bg-forest pb-6 pt-24">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Tangazaa Partner</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-coral">Tangazaa Partner</p>
               <h1 className="font-serif text-2xl font-semibold text-cream sm:text-3xl">{title}</h1>
             </div>
             <NotificationBell />
@@ -99,7 +99,7 @@ export default function PartnerLayout() {
             end={end}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[10px] font-semibold ${
-                isActive ? 'text-gold' : 'text-cream/70'
+                isActive ? 'text-coral' : 'text-cream/70'
               }`
             }
           >

@@ -53,7 +53,7 @@ export default function OwnerDashboardPage() {
           <button
             type="button"
             onClick={() => setEditing('new')}
-            className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
+            className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gold-soft"
           >
             + Add Billboard
           </button>
@@ -87,7 +87,7 @@ export default function OwnerDashboardPage() {
                     key={board.id}
                     center={[board.lat, board.lng]}
                     radius={10}
-                    pathOptions={{ color: '#fff', weight: 2, fillColor: '#d6a23e', fillOpacity: 1 }}
+                    pathOptions={{ color: '#fff', weight: 2, fillColor: '#8A3DF0', fillOpacity: 1 }}
                   >
                     <Popup>
                       <p className="font-semibold text-forest">{board.title}</p>

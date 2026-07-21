@@ -234,7 +234,7 @@ function ClientFileModal({ contact, onClose }) {
       <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-3 bg-forest px-6 py-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold">Client file</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-coral">Client file</p>
             <h2 className="mt-1 font-serif text-lg font-semibold text-cream">{contact.name}</h2>
             {contact.company && <p className="text-xs text-cream/70">{contact.company}</p>}
           </div>

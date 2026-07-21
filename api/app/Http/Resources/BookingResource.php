@@ -35,6 +35,15 @@ class BookingResource extends JsonResource
                 'name' => $this->contact->name,
                 'company' => $this->contact->company,
             ] : null),
+            // The salesperson at the billboard company running this campaign —
+            // the customer's named contact. Null until the company assigns one.
+            'account_manager' => $this->whenLoaded('accountManager', fn () => $this->accountManager ? [
+                'id' => $this->accountManager->id,
+                'name' => $this->accountManager->name,
+                'email' => $this->accountManager->email,
+                'phone' => $this->accountManager->phone,
+                'assigned_at' => $this->account_manager_assigned_at?->toIso8601String(),
+            ] : null),
             'source' => $this->source?->value ?? 'app',
             'start_date' => $this->start_date->format('Y-m-d'),
             'end_date' => $this->end_date->format('Y-m-d'),

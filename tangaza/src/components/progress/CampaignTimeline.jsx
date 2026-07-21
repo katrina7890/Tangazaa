@@ -82,7 +82,7 @@ function StageDot({ state }) {
   if (state === 'done' || state === 'current') {
     return (
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-forest shadow-sm ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold text-white shadow-sm ${
           state === 'current' ? 'ring-4 ring-gold/30' : ''
         }`}
       >
@@ -186,7 +186,7 @@ function UpdateCard({ update, onReacted }) {
                   type="button"
                   disabled={saving}
                   onClick={() => react('approved', false)}
-                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-forest-deep transition hover:bg-gold-soft disabled:opacity-50"
+                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-white transition hover:bg-gold-soft disabled:opacity-50"
                 >
                   {saving ? 'Sending…' : 'Yes — go ahead'}
                 </button>

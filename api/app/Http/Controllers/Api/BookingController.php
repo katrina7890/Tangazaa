@@ -16,6 +16,7 @@ use App\Models\AppNotification;
 use App\Models\Billboard;
 use App\Models\Booking;
 use App\Models\BookingUpdate;
+use App\Services\Mail\CustomerMailer;
 use App\Services\Payments\PaystackService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class BookingController extends Controller
     public function mine(Request $request): AnonymousResourceCollection
     {
         $bookings = $request->user()->bookings()
-            ->with(['billboard', 'latestPayment', 'latestUpdate'])
+            ->with(['billboard', 'latestPayment', 'latestUpdate', 'accountManager'])
             ->withCount([
                 'updates',
                 // Approval requests the customer hasn't answered yet — powers
@@ -194,6 +195,8 @@ class BookingController extends Controller
         );
 
         $booking->update(['status' => BookingStatus::Cancelled]);
+
+        app(CustomerMailer::class)->bookingCancelled($booking, byCustomer: true);
 
         return new BookingResource($booking->load('billboard'));
     }

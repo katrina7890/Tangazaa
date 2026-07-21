@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { fetchBookingPipeline, fetchPartnerBooking, updateBookingStage } from '../../api';
+import { assignAccountManager, fetchBookingPipeline, fetchPartnerBooking, updateBookingStage } from '../../api';
 import BillboardImage from '../../components/BillboardImage';
 import PaymentStatusBadge from '../../components/PaymentStatusBadge';
 import BookingUpdatesModal from '../../components/partner/BookingUpdatesModal';
@@ -109,6 +109,13 @@ export default function PartnerBookingDetailPage() {
           </button>
         </div>
       </SectionCard>
+
+      {/* ── Campaign manager ───────────────────────────────── */}
+      <AccountManagerCard
+        booking={booking}
+        team={team}
+        onAssigned={(updated) => setBooking(updated)}
+      />
 
       {/* ── Pipeline ───────────────────────────────────────── */}
       <SectionCard title="Pipeline">
@@ -308,6 +315,92 @@ function StageDot({ state }) {
     return <span className="h-7 w-7 shrink-0 rounded-full border-[7px] border-sky-500 bg-white ring-4 ring-sky-500/20" />;
   }
   return <span className="h-7 w-7 shrink-0 rounded-full border-2 border-sand bg-white" />;
+}
+
+/**
+ * Names the salesperson who owns this campaign. Saving emails the client an
+ * introduction with that person's contact details, so it only fires on a real
+ * change — re-saving the same person doesn't re-introduce them.
+ */
+function AccountManagerCard({ booking, team, onAssigned }) {
+  const [selected, setSelected] = useState(booking.accountManager?.id ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const current = booking.accountManager;
+  const dirty = String(selected) !== String(current?.id ?? '');
+
+  async function handleSave() {
+    setSaving(true);
+    setError('');
+    setSaved(false);
+    try {
+      const updated = await assignAccountManager(booking.id, selected === '' ? null : Number(selected));
+      onAssigned(updated);
+      setSaved(true);
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SectionCard title="Campaign manager">
+      {current ? (
+        <p className="text-sm text-stone-600">
+          <span className="font-semibold text-forest">{current.name}</span> is the client&apos;s named
+          contact for this campaign.
+        </p>
+      ) : (
+        <p className="text-sm text-stone-600">
+          Nobody is assigned yet. Naming someone emails the client an introduction with their contact
+          details.
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="min-w-[12rem] flex-1">
+          <span className={labelClass}>Assigned to</span>
+          <select
+            value={selected}
+            onChange={(event) => setSelected(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">Nobody</option>
+            {team.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !dirty}
+          className={`${goldButtonClass} disabled:opacity-50`}
+        >
+          {saving ? 'Saving…' : 'Save & notify client'}
+        </button>
+      </div>
+
+      {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
+      {saved && !dirty && (
+        <p className="mt-2 text-sm font-medium text-emerald-700">
+          Saved{current ? ` — ${current.name} was introduced to the client by email.` : '.'}
+        </p>
+      )}
+
+      {booking.source === 'offline' && (
+        <p className="mt-2 text-xs text-stone-400">
+          This is an offline deal, so there&apos;s no client account to email — the assignment is
+          recorded for your team only.
+        </p>
+      )}
+    </SectionCard>
+  );
 }
 
 function InfoFact({ label, value }) {

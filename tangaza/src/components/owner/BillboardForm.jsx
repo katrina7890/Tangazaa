@@ -303,7 +303,7 @@ export default function BillboardForm({ billboard, onSaved, onCancel }) {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-full bg-gold px-5 py-2 text-sm font-bold text-forest hover:bg-gold-soft disabled:opacity-60"
+          className="rounded-full bg-gold px-5 py-2 text-sm font-bold text-white hover:bg-gold-soft disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>

@@ -215,6 +215,15 @@ function mapBooking(booking) {
     totalPrice: booking.total_price,
     status: booking.status,
     payment: booking.payment ? mapPayment(booking.payment) : null,
+    accountManager: booking.account_manager
+      ? {
+          id: booking.account_manager.id,
+          name: booking.account_manager.name,
+          email: booking.account_manager.email,
+          phone: booking.account_manager.phone,
+          assignedAt: booking.account_manager.assigned_at,
+        }
+      : null,
     updatesCount: booking.updates_count ?? 0,
     pendingApprovals: booking.pending_approvals ?? 0,
     latestUpdate: booking.latest_update
@@ -262,6 +271,60 @@ export async function reactToBookingUpdate(updateId, payload) {
     body: JSON.stringify(payload),
   });
   return mapBookingUpdate(data);
+}
+
+// ---- Account: profile, email preferences, verification ----
+
+export async function updateProfile(payload) {
+  const { user } = await apiFetch('/api/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  return user;
+}
+
+export async function fetchEmailTopics() {
+  const { data } = await apiFetch('/api/profile/email-topics');
+  return data;
+}
+
+export async function resendVerificationEmail() {
+  return apiFetch('/api/email/verification-notification', { method: 'POST' });
+}
+
+// ---- Billing history & paperwork ----
+
+export async function fetchMyPayments() {
+  const { data } = await apiFetch('/api/my/payments');
+  return data;
+}
+
+export async function fetchMyDocuments() {
+  const { data } = await apiFetch('/api/my/documents');
+  return data;
+}
+
+/**
+ * PDFs come back as a binary body, not JSON, so this bypasses apiFetch and
+ * hands the browser a blob to save. Same-origin credentials still apply.
+ */
+export async function downloadDocument(document_) {
+  const response = await fetch(`${API_URL}${document_.downloadUrl}`, {
+    credentials: 'include',
+    headers: { Accept: 'application/pdf' },
+  });
+  if (!response.ok) throw new Error('That document could not be downloaded.');
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = window.document.createElement('a');
+  link.href = url;
+  link.download = `tangazaa-${document_.type}-${document_.reference}.pdf`;
+  window.document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoking immediately can cancel the download in some browsers.
+  setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 }
 
 export async function fetchAdminStats() {
@@ -312,6 +375,103 @@ export async function fetchAdminBillboards(params = {}) {
 export async function fetchAdminBookings(params = {}) {
   const { data } = await apiFetch(`/api/admin/bookings${toQueryString(params)}`);
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// Admin console — access control (RBAC), audit trail and security.
+// Every one of these is authorised server-side; the UI only hides what the
+// caller can't use, it never decides what they may do.
+// ---------------------------------------------------------------------------
+
+export async function fetchAdminPermissionCatalogue() {
+  const { data } = await apiFetch('/api/admin/permissions');
+  return data;
+}
+
+function mapAdminAccount(admin) {
+  return {
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    isSuperAdmin: admin.is_super_admin,
+    isSuspended: admin.is_suspended,
+    isLocked: admin.is_locked,
+    permissions: admin.permissions || [],
+    createdAt: admin.created_at,
+  };
+}
+
+export async function fetchAdminAccounts() {
+  const { data } = await apiFetch('/api/admin/admins');
+  return data.map(mapAdminAccount);
+}
+
+export async function createAdminAccount(payload) {
+  const { data } = await apiFetch('/api/admin/admins', { method: 'POST', body: JSON.stringify(payload) });
+  return mapAdminAccount(data);
+}
+
+export async function updateAdminPermissions(id, permissions) {
+  const { data } = await apiFetch(`/api/admin/admins/${id}/permissions`, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions }),
+  });
+  return mapAdminAccount(data);
+}
+
+export async function updateAdminSuperStatus(id, isSuperAdmin) {
+  const { data } = await apiFetch(`/api/admin/admins/${id}/super-admin`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_super_admin: isSuperAdmin }),
+  });
+  return mapAdminAccount(data);
+}
+
+export async function fetchAuditLogs(params = {}) {
+  const response = await apiFetch(`/api/admin/audit-logs${toQueryString(params)}`);
+  return {
+    items: response.data.map((log) => ({
+      id: log.id,
+      action: log.action,
+      actor: log.actor,
+      target: log.target,
+      changes: log.changes,
+      ipAddress: log.ip_address,
+      createdAt: log.created_at,
+    })),
+    meta: response.meta,
+    actions: response.actions || [],
+  };
+}
+
+export async function fetchAdminSecurityOverview() {
+  const response = await apiFetch('/api/admin/security');
+  return {
+    stats: response.stats,
+    lockedAccounts: response.locked_accounts,
+    recentEvents: response.recent_security_events,
+  };
+}
+
+export async function unlockUserAccount(id) {
+  const { data } = await apiFetch(`/api/admin/users/${id}/unlock`, { method: 'PATCH' });
+  return data;
+}
+
+export async function fetchMyAdminSessions() {
+  const { data } = await apiFetch('/api/admin/sessions');
+  return data.map((session) => ({
+    id: session.id,
+    ipAddress: session.ip_address,
+    userAgent: session.user_agent,
+    lastActivity: session.last_activity,
+    isCurrent: session.is_current,
+  }));
+}
+
+export async function revokeOtherAdminSessions() {
+  const { data } = await apiFetch('/api/admin/sessions/others', { method: 'DELETE' });
+  return data.revoked;
 }
 
 export async function cancelAdminBooking(id) {
@@ -485,6 +645,15 @@ function mapPartnerBooking(booking) {
     status: booking.status,
     source: booking.source || 'app',
     payment: booking.payment ? mapPayment(booking.payment) : null,
+    accountManager: booking.account_manager
+      ? {
+          id: booking.account_manager.id,
+          name: booking.account_manager.name,
+          email: booking.account_manager.email,
+          phone: booking.account_manager.phone,
+          assignedAt: booking.account_manager.assigned_at,
+        }
+      : null,
     stages: (booking.stages || []).map((stage) => ({
       stage: stage.stage,
       substatus: stage.substatus,
@@ -510,6 +679,15 @@ export async function createOfflineBooking(payload) {
 export async function fetchPartnerBooking(id) {
   const { data, payments } = await apiFetch(`/api/partner/bookings/${id}`);
   return { booking: mapPartnerBooking(data), payments: (payments || []).map(mapPayment) };
+}
+
+/** Name (or clear, with null) the salesperson running a campaign. */
+export async function assignAccountManager(bookingId, accountManagerId) {
+  const { data } = await apiFetch(`/api/partner/bookings/${bookingId}/account-manager`, {
+    method: 'PATCH',
+    body: JSON.stringify({ account_manager_id: accountManagerId }),
+  });
+  return mapPartnerBooking(data);
 }
 
 function mapPipelineStage(stage) {

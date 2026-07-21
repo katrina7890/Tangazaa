@@ -1,41 +1,173 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* ---------------------------------------------------------------------------
+   Tangazaa Nightfall theme (2026-07-21), from the "Tangazaa Landing Page"
+   mockup in the claude.ai/design project.
+
+   The token *names* are historical (cream/sand/forest/gold) and are kept on
+   purpose — hundreds of class usages reference them, so swapping the values
+   re-skins the whole app without touching components. Read them as:
+     cream  = surface base        forest = ink / dark surfaces
+     sand   = hairline borders    gold   = action accent
+
+   Every pair below was contrast-checked; see the notes on each. Keep them
+   AA (4.5:1) if you retune — the pastels are surfaces, their -ink partners
+   are the only things allowed to carry text on them.
+--------------------------------------------------------------------------- */
 @theme {
-  --color-cream: #fdf1e3;
-  --color-sand: #ead9bd;
-  --color-sand-dark: #ddc49a;
-  --color-campaign-green: #dce9da;
+  /* Warm paper surfaces */
+  --color-cream: #f8ecdc;
+  --color-sand: #e9e3d6;
+  --color-sand-dark: #d9cfbc;
+  --color-campaign-green: #c9eed8;
 
-  /* Forest-green + gold luxury palette. The *typography and component style*
-     follow vitorra.org's editorial look (see CLAUDE.md), but the colors are
-     deliberately Tangazaa's own — don't swap them for vitorra's charcoal/brass. */
-  --color-forest: #1c2c24;
-  --color-forest-deep: #14211b;
-  --color-forest-soft: #28392f;
-  --color-gold: #d6a23e;
-  --color-gold-soft: #e4be6d;
-  --color-gold-dark: #a16207; /* WCAG-safe gold for text on light */
+  /* Ink — typography and dark sections */
+  --color-forest: #241c16;
+  --color-forest-deep: #17110d;
+  --color-forest-soft: #3d2e1e;
 
-  --font-display: "Cormorant Garamond", Georgia, serif;
-  --font-serif: "Cormorant Garamond", Georgia, serif;
-  --font-sans: "DM Sans", system-ui, sans-serif;
+  /* Electric Purple — the action accent. Dark enough that anything sitting
+     on it needs WHITE text (5.24:1). */
+  --color-gold: #8a3df0;
+  --color-gold-soft: #a468f5;
+  --color-gold-dark: #6a1fd0; /* AA purple for text on cream — 6.63:1 */
+
+  /* Hot pink: the far end of the signature purple→pink gradient. Deliberately
+     a shade deeper than the mockup's #ff4f8b, which only reaches 3.11:1
+     against white and would have made every gradient button label fail. */
+  --color-blush: #e01f66;
+
+  /* Context colours — pastel surfaces, not data-viz inks */
+  --color-mint: #c9eed8;
+  --color-coral: #ffd0e0;
+  --color-sustain: #f1e0c9;
+  /* Readable ink versions, for text/charts on those pastels and on cream */
+  --color-mint-ink: #16704a; /* 4.84:1 on mint, 5.22:1 on cream */
+  --color-coral-ink: #a3234f; /* 5.27:1 on coral, 6.19:1 on cream */
+
+  /* Archivo carries headlines (heavy, tight, italic for the wordmark);
+     Inter is the UI and body face. */
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-serif: "Archivo", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-editorial: "Inter", system-ui, sans-serif;
 }
 
 body {
   margin: 0;
-  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
     'Helvetica Neue', sans-serif;
-  letter-spacing: -0.01em;
+  background-color: var(--color-cream);
+  color: var(--color-forest);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Cormorant is a fine-stroked display serif — give headings the tight
-   tracking the reference site uses so they read intentional, not default. */
+/* Archivo wants to be set tight and heavy at display sizes — that tension is
+   the whole look, and it's why headlines use font-black rather than bold. */
 .font-serif,
 .font-display {
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+}
+
+/* Running copy: quotes, descriptions, editorial paragraphs. Historically a
+   serif (Newsreader); this theme has no serif, so it resolves to Inter and
+   reads as ordinary body text. */
+.font-editorial {
+  font-family: var(--font-editorial);
+  letter-spacing: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   `map-dark:` variant — for the floating UI on the browse map.
+
+   Keyed off the map's own style picker (Light / Dark / Satellite), NOT the OS
+   colour scheme: the panels sit on top of the tiles, so what matters is how
+   dark the map underneath is. MapBrowsePage stamps `data-map-theme` on its
+   root; add `[data-map-theme='satellite']` here to cover that style too.
+--------------------------------------------------------------------------- */
+@custom-variant map-dark (&:where([data-map-theme='dark'] *));
+
+/* ---------------------------------------------------------------------------
+   Radar intro (components/map/RadarIntro.jsx) — the scan that plays over the
+   browse map before the inventory is revealed.
+--------------------------------------------------------------------------- */
+@keyframes radar-sweep {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Rings expanding outward from the centre, behind the sweep. */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.25);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* Contacts blink on as the beam passes over them. */
+@keyframes radar-ping {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  55% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+}
+
+@keyframes radar-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.radar-sweep {
+  animation: radar-sweep 2s linear infinite;
+}
+.radar-pulse {
+  animation: radar-pulse 2.8s ease-out infinite;
+}
+.radar-ping {
+  animation: radar-ping 2s ease-in-out infinite;
+}
+
+/* A spinning beam is exactly the kind of motion that triggers vestibular
+   discomfort, so honour the OS setting: the intro still renders, but static.
+   RadarIntro also cuts the whole sequence short when this is set. */
+@media (prefers-reduced-motion: reduce) {
+  .radar-sweep,
+  .radar-pulse,
+  .radar-ping {
+    animation: none;
+  }
+}
+
+/* The wordmark's signature move: Archivo Black with the trailing "aa" in
+   italic, set enormous and tight. */
+.wordmark-display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  line-height: 0.78;
+}
+.wordmark-display em {
+  font-style: italic;
 }
 
 code {

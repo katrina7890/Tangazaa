@@ -7,7 +7,7 @@ export const inputClass =
 export const labelClass = 'mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500';
 
 export const goldButtonClass =
-  'rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-50';
+  'rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gold-soft disabled:cursor-not-allowed disabled:opacity-50';
 
 export const ghostButtonClass =
   'rounded-full border border-sand bg-white px-4 py-2 text-sm font-semibold text-stone-700 transition hover:border-gold hover:text-gold-dark';

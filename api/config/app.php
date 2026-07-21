@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Where the React SPA lives. Emails and the email-verification redirect
+    | need to link at the SPA, not the API. FRONTEND_URLS is a comma-separated
+    | CORS allowlist (see config/cors.php); the first entry is the canonical
+    | one we link to.
+    |
+    */
+
+    'frontend_url' => rtrim(explode(',', env('FRONTEND_URLS', 'http://localhost:3000'))[0], '/'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

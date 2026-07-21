@@ -19,4 +19,15 @@ enum CampaignStage: string
     {
         return array_search($this, self::cases(), true);
     }
+
+    /** Mirrors tangaza/src/components/progress/stages.js — keep the two in step. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::AgentContact => 'Agent in touch',
+            self::Artwork => 'Artwork',
+            self::Production => 'Printing & production',
+            self::Installation => 'Installation',
+        };
+    }
 }

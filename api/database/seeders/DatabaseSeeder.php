@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\AdminPermission;
 use App\Enums\ArtworkStatus;
 use App\Enums\BillboardChannel;
 use App\Enums\BookingSource;
@@ -41,6 +42,21 @@ class DatabaseSeeder extends Seeder
             'name' => 'Tangazaa Admin',
             'company_name' => 'Tangazaa',
             'email' => 'admin@tangaza.test',
+            'password' => 'password',
+        ]);
+
+        // A restricted admin, so the RBAC screens have something real to show:
+        // support-desk access only — can read users and bookings, can touch
+        // neither money nor other administrators.
+        User::factory()->limitedAdmin([
+            AdminPermission::UsersView,
+            AdminPermission::BookingsView,
+            AdminPermission::BookingsManage,
+            AdminPermission::BillboardsView,
+        ])->create([
+            'name' => 'Priya Support',
+            'company_name' => 'Tangazaa',
+            'email' => 'support@tangaza.test',
             'password' => 'password',
         ]);
 

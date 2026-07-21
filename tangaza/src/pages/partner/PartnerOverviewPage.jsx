@@ -8,11 +8,11 @@ import { formatKES } from '../../utils/availability';
 
 // One colour per portfolio state, mirrored between the map pins and the legend.
 const PIN_STATES = {
-  online_available: { color: '#10b981', label: 'Online · available' },
-  online_booked: { color: '#d6a23e', label: 'Online · booked' },
-  offline_available: { color: '#0ea5e9', label: 'Offline · available' },
-  offline_booked: { color: '#64748b', label: 'Offline · booked' },
-  maintenance: { color: '#ef4444', label: 'Maintenance' },
+  online_available: { color: '#16704A', label: 'Online · available' },
+  online_booked: { color: '#8A3DF0', label: 'Online · booked' },
+  offline_available: { color: '#0284C7', label: 'Offline · available' },
+  offline_booked: { color: '#6B5B4A', label: 'Offline · booked' },
+  maintenance: { color: '#E11D48', label: 'Maintenance' },
 };
 
 function pinState(board) {

@@ -8,11 +8,15 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   // These routes have a dark forest backdrop at the top, so the wordmark needs to be light there.
-  const darkBackdropRoutes = ['/', '/login', '/signup', '/dashboard', '/owner', '/admin', '/messages'];
+  // `/admin` is deliberately absent: the console's floating-panel remodel opens
+  // on a light sand canvas, so the wordmark must stay dark there.
+  const darkBackdropRoutes = ['/', '/login', '/signup', '/owner'];
   const onDarkBackdrop =
     darkBackdropRoutes.includes(location.pathname) ||
     location.pathname.startsWith('/partner') ||
-    // Campaign progress pages (/bookings/:id/progress) open on the forest hero too.
+    // The customer workspace is a nested shell — every /dashboard/* section
+    // opens on the same forest band, as does the old /bookings/:id/progress URL.
+    location.pathname.startsWith('/dashboard') ||
     location.pathname.startsWith('/bookings/');
 
   // Fade a solid forest backdrop in once the user scrolls past the top, so the
@@ -84,7 +88,7 @@ export default function Header() {
               lightWordmark ? 'hover:bg-white/10' : 'hover:bg-black/5'
             }`}
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-sm font-bold text-forest shadow-sm">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gold text-sm font-bold text-white shadow-sm">
               {initials(user.name)}
             </span>
             <ChevronIcon
@@ -116,7 +120,7 @@ export default function Header() {
               </Link>
               {user.role === 'customer' && (
                 <Link
-                  to="/messages"
+                  to="/dashboard/messages"
                   role="menuitem"
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-stone-700 transition hover:bg-cream"
                 >
@@ -153,7 +157,7 @@ export default function Header() {
             to="/partner/login"
             className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
               lightWordmark
-                ? 'border-cream/30 text-cream hover:border-gold hover:text-gold'
+                ? 'border-cream/30 text-cream hover:border-coral hover:text-coral'
                 : 'border-forest/25 text-forest hover:border-gold-dark hover:text-gold-dark'
             }`}
           >
@@ -161,7 +165,7 @@ export default function Header() {
           </Link>
           <Link
             to="/login"
-            className="flex items-center gap-2 rounded-full bg-gold px-5 py-2 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft"
+            className="flex items-center gap-2 rounded-full bg-gold px-5 py-2 text-sm font-semibold text-white transition hover:bg-gold-soft"
           >
             <UserIcon />
             Sign in

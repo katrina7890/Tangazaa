@@ -39,7 +39,7 @@ class OfflineBookingController extends Controller
     {
         Gate::authorize('viewAny', [BookingStage::class, $booking]);
 
-        $booking->load(['billboard', 'customer', 'contact', 'latestPayment', 'stages.assignee', 'payments']);
+        $booking->load(['billboard', 'customer', 'contact', 'latestPayment', 'stages.assignee', 'payments', 'accountManager']);
 
         return (new BookingResource($booking))
             ->additional(['payments' => PaymentResource::collection($booking->payments)]);

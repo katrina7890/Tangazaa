@@ -194,7 +194,7 @@ export default function BillboardDetailPage() {
                     type="button"
                     onClick={handleConfirmBooking}
                     disabled={booking}
-                    className="mt-3 rounded-full bg-gold px-5 py-2 text-sm font-bold text-forest transition hover:bg-gold-soft disabled:opacity-60"
+                    className="mt-3 rounded-full bg-gold px-5 py-2 text-sm font-bold text-white transition hover:bg-gold-soft disabled:opacity-60"
                   >
                     {booking ? 'Starting checkout…' : 'Book & Pay'}
                   </button>

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['billboard_id', 'customer_id', 'contact_id', 'start_date', 'end_date', 'total_price', 'status', 'source'])]
+#[Fillable(['billboard_id', 'customer_id', 'contact_id', 'account_manager_id', 'account_manager_assigned_at', 'start_date', 'end_date', 'total_price', 'status', 'source'])]
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
@@ -26,7 +26,17 @@ class Booking extends Model
             'total_price' => 'integer',
             'status' => BookingStatus::class,
             'source' => BookingSource::class,
+            'account_manager_assigned_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Human-readable contract reference printed on the PDF. Derived from the
+     * id rather than stored so it can never drift out of sync with the row.
+     */
+    public function contractNumber(): string
+    {
+        return 'TGZ-C-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
     }
 
     public function billboard(): BelongsTo
@@ -42,6 +52,12 @@ class Booking extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    /** The salesperson at the billboard company running this campaign. */
+    public function accountManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'account_manager_id');
     }
 
     public function payments(): HasMany

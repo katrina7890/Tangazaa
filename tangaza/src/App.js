@@ -1,13 +1,18 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import RequireRole from './components/RequireRole';
+import CustomerLayout from './components/customer/CustomerLayout';
 import PartnerLayout from './components/partner/PartnerLayout';
 import { AuthProvider } from './context/AuthContext';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import BillboardDetailPage from './pages/BillboardDetailPage';
-import BookingProgressPage from './pages/BookingProgressPage';
-import CustomerDashboardPage from './pages/CustomerDashboardPage';
-import CustomerMessagesPage from './pages/CustomerMessagesPage';
+import BookingProgressPage from './pages/customer/BookingProgressPage';
+import CustomerCampaignsPage from './pages/customer/CustomerCampaignsPage';
+import CustomerDocumentsPage from './pages/customer/CustomerDocumentsPage';
+import CustomerMessagesPage from './pages/customer/CustomerMessagesPage';
+import CustomerOverviewPage from './pages/customer/CustomerOverviewPage';
+import CustomerPaymentsPage from './pages/customer/CustomerPaymentsPage';
+import CustomerProfilePage from './pages/customer/CustomerProfilePage';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import MapBrowsePage from './pages/MapBrowsePage';
@@ -40,30 +45,29 @@ function App() {
             <Route path="/billboards/:id" element={<BillboardDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            {/* The customer workspace — same side-menu shell as Tangazaa
+                Partner, so both sides of the marketplace navigate alike. */}
             <Route
               path="/dashboard"
               element={
                 <RequireRole roles={['customer']}>
-                  <CustomerDashboardPage />
+                  <CustomerLayout />
                 </RequireRole>
               }
-            />
-            <Route
-              path="/messages"
-              element={
-                <RequireRole roles={['customer']}>
-                  <CustomerMessagesPage />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/bookings/:id/progress"
-              element={
-                <RequireRole roles={['customer']}>
-                  <BookingProgressPage />
-                </RequireRole>
-              }
-            />
+            >
+              <Route index element={<CustomerOverviewPage />} />
+              <Route path="campaigns" element={<CustomerCampaignsPage />} />
+              <Route path="messages" element={<CustomerMessagesPage />} />
+              <Route path="payments" element={<CustomerPaymentsPage />} />
+              <Route path="documents" element={<CustomerDocumentsPage />} />
+              <Route path="profile" element={<CustomerProfilePage />} />
+              <Route path="bookings/:id/progress" element={<BookingProgressPage />} />
+            </Route>
+
+            {/* Pre-sidebar URLs — kept alive because they're linked from
+                already-sent emails and in-app notifications. */}
+            <Route path="/messages" element={<Navigate to="/dashboard/messages" replace />} />
+            <Route path="/bookings/:id/progress" element={<LegacyProgressRedirect />} />
             <Route
               path="/owner"
               element={
@@ -124,6 +128,12 @@ function App() {
       </AuthProvider>
     </BrowserRouter>
   );
+}
+
+/** Carries the booking id across to the nested progress route. */
+function LegacyProgressRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/dashboard/bookings/${id}/progress`} replace />;
 }
 
 export default App;

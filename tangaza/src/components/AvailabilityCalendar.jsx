@@ -147,10 +147,10 @@ function cellClass({ disabled, isBooked, isStart, isEnd, inSelected, isNextAvail
     return `${base} cursor-not-allowed text-stone-300`;
   }
   if (isStart || isEnd) {
-    return `${base} bg-gold font-bold text-forest`;
+    return `${base} bg-gold font-bold text-white`;
   }
   if (inSelected) {
-    return `${base} bg-gold-soft/60 text-forest`;
+    return `${base} bg-gold-soft/60 text-white`;
   }
   if (isNextAvailable) {
     return `${base} text-forest ring-2 ring-gold`;

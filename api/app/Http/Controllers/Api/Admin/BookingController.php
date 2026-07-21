@@ -6,6 +6,8 @@ use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
+use App\Services\Mail\CustomerMailer;
+use App\Services\Security\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -32,9 +34,20 @@ class BookingController extends Controller
         return BookingResource::collection($bookings);
     }
 
-    public function cancel(Booking $booking): BookingResource
+    public function cancel(Booking $booking, AuditLogger $audit): BookingResource
     {
+        $before = $booking->status->value;
         $booking->update(['status' => BookingStatus::Cancelled]);
+
+        $audit->record(
+            action: 'booking.cancelled',
+            target: $booking,
+            before: ['status' => $before],
+            after: ['status' => $booking->status->value],
+            targetLabel: $booking->billboard->title,
+        );
+
+        app(CustomerMailer::class)->bookingCancelled($booking, byCustomer: false);
 
         return new BookingResource($booking->load(['billboard', 'customer']));
     }

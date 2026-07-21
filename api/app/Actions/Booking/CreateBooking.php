@@ -8,6 +8,7 @@ use App\Models\AppNotification;
 use App\Models\Billboard;
 use App\Models\Booking;
 use App\Models\User;
+use App\Services\Mail\CustomerMailer;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -90,6 +91,8 @@ class CreateBooking
                 $end->format('M j, Y'),
             ),
         );
+
+        app(CustomerMailer::class)->bookingRequested($booking);
 
         return $booking;
     }

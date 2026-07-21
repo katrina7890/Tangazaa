@@ -59,7 +59,7 @@ export default function SignupPage() {
             type="button"
             onClick={() => setRole(option.value)}
             className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-              role === option.value ? 'bg-gold text-forest shadow-sm' : 'text-stone-600 hover:text-forest'
+              role === option.value ? 'bg-gold text-white shadow-sm' : 'text-stone-600 hover:text-white'
             }`}
           >
             {option.label}
@@ -115,7 +115,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-semibold text-forest-deep transition hover:bg-gold-soft disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-gold px-4 py-3 text-sm font-semibold text-white transition hover:bg-gold-soft disabled:opacity-60"
         >
           {submitting ? 'Creating account…' : 'Create account'}
           <ArrowIcon />

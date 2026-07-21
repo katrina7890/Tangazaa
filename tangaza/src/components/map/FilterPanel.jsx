@@ -5,8 +5,6 @@ export default function FilterPanel({
   selectedBillboard,
   onClearSelected,
   onViewDetails,
-  query,
-  onQueryChange,
   startDate,
   endDate,
   onStartDateChange,
@@ -25,22 +23,13 @@ export default function FilterPanel({
   count,
 }) {
   return (
-    <div className="absolute right-4 top-24 z-[900] max-h-[80vh] w-80 overflow-y-auto rounded-3xl border border-sand bg-cream/95 p-5 shadow-xl backdrop-blur">
-      <div className="relative">
-        <SearchIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search locations..."
-          className="w-full rounded-full bg-sand py-3 pl-11 pr-4 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-gold"
-        />
-      </div>
-
-      <span className="mt-4 inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wide text-forest">
+    // Search lives in MapSearchBar at the top of the map — deliberately not
+    // duplicated here, since both would bind to the same `query` state.
+    <div className="absolute right-4 top-40 z-[900] max-h-[70vh] w-80 overflow-y-auto rounded-3xl border border-sand bg-cream/95 p-5 shadow-xl backdrop-blur map-dark:border-white/10 map-dark:bg-forest-deep/95 sm:top-44 lg:top-24">
+      <span className="inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
         Live Inventory
       </span>
-      <p className="mt-2 text-2xl font-bold text-slate-900">
+      <p className="mt-2 text-2xl font-bold text-slate-900 map-dark:text-cream">
         {count} Board{count === 1 ? '' : 's'}
       </p>
 
@@ -56,10 +45,12 @@ export default function FilterPanel({
       )}
 
       <SectionLabel icon={<CalendarIcon />}>Campaign Dates</SectionLabel>
-      <div className="rounded-2xl bg-campaign-green p-3">
+      {/* The mint block reads as a highlight on cream; on dark it becomes a
+          subtle raised panel instead, since mint would glare. */}
+      <div className="rounded-2xl bg-campaign-green p-3 map-dark:bg-white/[0.06]">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label htmlFor="panel-start" className="block text-xs font-medium text-slate-600">
+            <label htmlFor="panel-start" className="block text-xs font-medium text-slate-600 map-dark:text-cream/60">
               Start
             </label>
             <input
@@ -67,11 +58,11 @@ export default function FilterPanel({
               type="date"
               value={startDate}
               onChange={(event) => onStartDateChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-gold"
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-gold map-dark:border-white/15 map-dark:bg-white/10 map-dark:text-cream map-dark:[color-scheme:dark]"
             />
           </div>
           <div>
-            <label htmlFor="panel-end" className="block text-xs font-medium text-slate-600">
+            <label htmlFor="panel-end" className="block text-xs font-medium text-slate-600 map-dark:text-cream/60">
               End
             </label>
             <input
@@ -80,16 +71,16 @@ export default function FilterPanel({
               value={endDate}
               min={startDate || undefined}
               onChange={(event) => onEndDateChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-gold"
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-gold map-dark:border-white/15 map-dark:bg-white/10 map-dark:text-cream map-dark:[color-scheme:dark]"
             />
           </div>
         </div>
-        <p className="mt-2 flex items-center gap-1 text-xs text-slate-600">
+        <p className="mt-2 flex items-center gap-1 text-xs text-slate-600 map-dark:text-cream/60">
           <InfoIcon className="h-3.5 w-3.5" />
           Min. {MIN_CAMPAIGN_DAYS} days booking
         </p>
         {daysSelected !== null && !meetsMinimum && (
-          <p className="mt-1 text-xs font-medium text-red-600">
+          <p className="mt-1 text-xs font-medium text-red-600 map-dark:text-red-300">
             Selected range is {daysSelected} day{daysSelected === 1 ? '' : 's'} — extend it to at least{' '}
             {MIN_CAMPAIGN_DAYS} days to filter by availability.
           </p>
@@ -100,7 +91,7 @@ export default function FilterPanel({
       <select
         value={location}
         onChange={(event) => onLocationChange(event.target.value)}
-        className="w-full rounded-2xl bg-sand px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-gold"
+        className="w-full rounded-2xl bg-sand px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-gold map-dark:bg-white/10 map-dark:text-cream map-dark:[color-scheme:dark]"
       >
         <option value="All locations">All locations</option>
         {locations.map((loc) => (
@@ -121,8 +112,8 @@ export default function FilterPanel({
               onClick={() => onToggleType(type.value)}
               className={`rounded-xl px-3 py-2 text-xs font-medium ${
                 selected
-                  ? 'bg-gold text-forest'
-                  : 'bg-white text-slate-700 hover:bg-slate-50'
+                  ? 'bg-gold text-white'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 map-dark:bg-white/10 map-dark:text-cream/80 map-dark:hover:bg-white/20 map-dark:hover:text-cream'
               }`}
             >
               {type.label}
@@ -141,7 +132,7 @@ export default function FilterPanel({
         onChange={(event) => onMaxWeeklyBudgetChange(Number(event.target.value))}
         className="w-full accent-gold"
       />
-      <p className="mt-1 text-xs text-slate-600">
+      <p className="mt-1 text-xs text-slate-600 map-dark:text-cream/60">
         Up to {formatKES(maxWeeklyBudget)}/week
       </p>
     </div>
@@ -154,50 +145,52 @@ function SelectedBillboardCard({ billboard, startDate, endDate, meetsMinimum, on
   const freeFrom = availableFrom(billboard.bookedRanges);
 
   return (
-    <div className="mt-4 rounded-2xl border-2 border-gold bg-white p-4 shadow-sm">
+    <div className="mt-4 rounded-2xl border-2 border-gold bg-white p-4 shadow-sm map-dark:bg-white/[0.07]">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-semibold text-forest">{billboard.title}</p>
-          <p className="truncate text-xs text-stone-500">{billboard.location}</p>
+          <p className="truncate font-semibold text-forest map-dark:text-cream">{billboard.title}</p>
+          <p className="truncate text-xs text-stone-500 map-dark:text-cream/50">{billboard.location}</p>
         </div>
         <button
           type="button"
           onClick={onClear}
           aria-label="Clear selection"
-          className="-mr-1 -mt-1 rounded-full p-1 text-stone-400 transition hover:bg-sand hover:text-stone-600"
+          className="-mr-1 -mt-1 rounded-full p-1 text-stone-400 transition hover:bg-sand hover:text-stone-600 map-dark:text-cream/50 map-dark:hover:bg-white/10 map-dark:hover:text-cream"
         >
           <CloseIcon />
         </button>
       </div>
 
+      {/* Purple ink is unreadable on the dark panel — the house rule is to
+          swap to coral on dark surfaces (see the palette notes in CLAUDE.md). */}
       <div className="mt-2 flex flex-wrap gap-1">
-        <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-gold-dark">
+        <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-gold-dark map-dark:bg-white/10 map-dark:text-coral">
           {billboardTypeLabel(billboard.type)}
         </span>
-        <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-stone-600">
+        <span className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-stone-600 map-dark:bg-white/10 map-dark:text-cream/70">
           {billboard.size}
         </span>
       </div>
 
       <dl className="mt-3 space-y-2 text-xs">
         <div className="flex items-center justify-between gap-2">
-          <dt className="flex items-center gap-1.5 text-stone-500">
+          <dt className="flex items-center gap-1.5 text-stone-500 map-dark:text-cream/50">
             <CalendarIcon />
             Available from
           </dt>
-          <dd className="font-semibold text-forest">{formatDate(freeFrom)}</dd>
+          <dd className="font-semibold text-forest map-dark:text-cream">{formatDate(freeFrom)}</dd>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <dt className="flex items-center gap-1.5 text-stone-500">
+          <dt className="flex items-center gap-1.5 text-stone-500 map-dark:text-cream/50">
             <TagIcon />
             Price range
           </dt>
-          <dd className="text-right font-semibold text-gold-dark">
+          <dd className="text-right font-semibold text-gold-dark map-dark:text-coral">
             {formatKES(billboard.pricePerDay)}
-            <span className="font-normal text-stone-500">/day</span>
+            <span className="font-normal text-stone-500 map-dark:text-cream/50">/day</span>
             {' · '}
             {formatKES(billboard.pricePerWeek)}
-            <span className="font-normal text-stone-500">/wk</span>
+            <span className="font-normal text-stone-500 map-dark:text-cream/50">/wk</span>
           </dd>
         </div>
       </dl>
@@ -215,7 +208,7 @@ function SelectedBillboardCard({ billboard, startDate, endDate, meetsMinimum, on
       <button
         type="button"
         onClick={() => onViewDetails(billboard.id)}
-        className="mt-3 w-full rounded-full bg-gold px-3 py-2 text-xs font-semibold text-forest-deep transition hover:bg-gold-soft"
+        className="mt-3 w-full rounded-full bg-gold px-3 py-2 text-xs font-semibold text-white transition hover:bg-gold-soft"
       >
         View details &amp; book
       </button>
@@ -233,19 +226,10 @@ function formatDate(value) {
 
 function SectionLabel({ icon, children }) {
   return (
-    <div className="mb-2 mt-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700">
+    <div className="mb-2 mt-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 map-dark:text-cream/70">
       {icon}
       {children}
     </div>
-  );
-}
-
-function SearchIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.3-4.3" />
-    </svg>
   );
 }
 

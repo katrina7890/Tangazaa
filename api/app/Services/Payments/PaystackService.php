@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Services\Mail\CustomerMailer;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -98,6 +99,9 @@ class PaystackService
                 $booking->end_date->format('M j, Y'),
             ),
         );
+
+        // Receipt + contract PDFs go out to the customer on confirmation.
+        app(CustomerMailer::class)->paymentReceipt($payment);
 
         return $payment;
     }

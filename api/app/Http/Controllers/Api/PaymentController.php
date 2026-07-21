@@ -15,6 +15,36 @@ use Illuminate\Http\Request;
 class PaymentController extends Controller
 {
     /**
+     * Every payment attempt the customer has made, newest first — the billing
+     * history behind the dashboard's Payments section. Unlike the `payment`
+     * field on a booking (which is only the latest attempt), this includes
+     * failed and superseded transactions.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        $payments = Payment::query()
+            ->whereHas('booking', fn ($query) => $query->where('customer_id', $request->user()->id))
+            ->with('booking.billboard')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'data' => $payments->map(fn (Payment $payment) => [
+                'id' => $payment->id,
+                'reference' => $payment->reference,
+                'amount' => $payment->amount,
+                'channel' => $payment->channel,
+                'status' => $payment->status->value,
+                'paidAt' => $payment->paid_at?->toIso8601String(),
+                'createdAt' => $payment->created_at->toIso8601String(),
+                'bookingId' => $payment->booking_id,
+                'billboard' => $payment->booking->billboard->title,
+                'bookingStatus' => $payment->booking->status->value,
+            ])->values(),
+        ]);
+    }
+
+    /**
      * Start (or resume) checkout for a pending booking — used by "Complete
      * payment" on a booking the customer didn't finish paying for.
      */

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import FilterPanel from '../components/map/FilterPanel';
 import MapControls from '../components/map/MapControls';
+import MapSearchBar from '../components/map/MapSearchBar';
+import RadarIntro from '../components/map/RadarIntro';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
 import { fetchBillboards } from '../api';
 import { BILLBOARD_TYPES, billboardTypeLabel } from '../data/billboardTypes';
@@ -24,6 +26,10 @@ export default function MapBrowsePage() {
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [maxWeeklyBudget, setMaxWeeklyBudget] = useState(Infinity);
   const [selectedId, setSelectedId] = useState(null);
+  const [introDone, setIntroDone] = useState(false);
+  // Stable identity: RadarIntro's timers key off this, and a fresh closure each
+  // render would restart them before they ever fire.
+  const handleIntroDone = useCallback(() => setIntroDone(true), []);
 
   useEffect(() => {
     fetchBillboards()
@@ -81,7 +87,24 @@ export default function MapBrowsePage() {
   }
 
   return (
-    <div className="fixed inset-0">
+    // Drives the `map-dark:` variant on the floating panels — they sit over the
+    // tiles, so they follow the map's style rather than the OS colour scheme.
+    <div className="fixed inset-0" data-map-theme={theme}>
+      {/* The map is mounted (and Leaflet sized) behind the scan, so the reveal
+          is instant rather than a second load.
+
+          Blur/scale are inline rather than Tailwind utilities so the transition
+          names exactly the two properties it animates. `transition-all` on a
+          wrapper this size also animates anything else that happens to change,
+          which is a lot of needless compositing over a live map. */}
+      <div
+        className="h-full w-full"
+        style={{
+          filter: introDone ? 'blur(0px)' : 'blur(12px)',
+          transform: introDone ? 'scale(1)' : 'scale(1.05)',
+          transition: 'filter 1s ease, transform 1s ease',
+        }}
+      >
       <MapContainer
         ref={mapRef}
         center={NAIROBI_CENTER}
@@ -99,7 +122,7 @@ export default function MapBrowsePage() {
               key={billboard.id}
               center={[billboard.lat, billboard.lng]}
               radius={9}
-              pathOptions={{ color: '#fff', weight: 2, fillColor: '#d6a23e', fillOpacity: 1 }}
+              pathOptions={{ color: '#fff', weight: 2, fillColor: '#8A3DF0', fillOpacity: 1 }}
               eventHandlers={{
                 // Zoom into the spot the customer clicked, surface its details in
                 // the side panel, then the popup anchors there.
@@ -150,7 +173,7 @@ export default function MapBrowsePage() {
                   <button
                     type="button"
                     onClick={() => navigate(`/billboards/${billboard.id}`)}
-                    className="mt-3 w-full rounded-full bg-gold px-3 py-1.5 text-xs font-semibold text-forest-deep transition hover:bg-gold-soft"
+                    className="mt-3 w-full rounded-full bg-gold px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gold-soft"
                   >
                     View details &amp; book
                   </button>
@@ -160,6 +183,20 @@ export default function MapBrowsePage() {
           );
         })}
       </MapContainer>
+      </div>
+
+      {!introDone && <RadarIntro onDone={handleIntroDone} />}
+
+      <MapSearchBar
+        query={query}
+        onQueryChange={setQuery}
+        locations={locations}
+        location={location}
+        onLocationChange={setLocation}
+        count={filteredBillboards.length}
+        loading={loading}
+        hidden={selectedId !== null}
+      />
 
       <MapControls
         theme={theme}
@@ -178,8 +215,6 @@ export default function MapBrowsePage() {
         selectedBillboard={billboards.find((billboard) => billboard.id === selectedId) || null}
         onClearSelected={() => setSelectedId(null)}
         onViewDetails={(billboardId) => navigate(`/billboards/${billboardId}`)}
-        query={query}
-        onQueryChange={setQuery}
         startDate={startDate}
         endDate={endDate}
         onStartDateChange={setStartDate}

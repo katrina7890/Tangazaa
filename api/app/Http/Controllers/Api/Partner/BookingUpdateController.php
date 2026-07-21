@@ -9,6 +9,7 @@ use App\Http\Resources\BookingUpdateResource;
 use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\BookingUpdate;
+use App\Services\Mail\CustomerMailer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -60,6 +61,10 @@ class BookingUpdateController extends Controller
                 $update->message,
             );
         }
+
+        // Email mirrors the in-app notification (the mailer no-ops on offline
+        // bookings, which have no customer account behind them).
+        app(CustomerMailer::class)->campaignUpdate($update);
 
         return (new BookingUpdateResource($update->load('author')))
             ->response()
