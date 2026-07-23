@@ -836,6 +836,17 @@ around the city rather than scattering across Kenya.
   reintroduces the cross-domain cookie bug (login appears to work but the dashboard never loads,
   since the session never comes back on the next request). See the CORS/Sanctum comment block in
   `render.yaml` for the full explanation.
+- **`api.js#resolveApiBase` now hard-guards this (as of 2026-07-23):** whenever the SPA is served
+  from a non-`localhost`/`127.0.0.1` host it returns `''` (relative paths) **regardless of whether
+  `REACT_APP_API_URL` is set** — the env var is only honoured in local dev. This was added after a
+  real incident: `REACT_APP_API_URL` had been set to `https://tangaza-api.onrender.com` in Vercel,
+  so the build baked that cross-origin base into the bundle, the SPA called Render directly instead
+  of the proxy, and the browser couldn't read the `XSRF-TOKEN` cookie across domains → every login
+  `419`'d with a **CSRF token mismatch**. The guard means a stray Vercel value can no longer
+  resurrect the bug, but you should **still remove `REACT_APP_API_URL` from Vercel's env** (it's
+  misleading and only the guard is saving it). Symptom to recognise: login 419s in the real app but
+  works when you hit `/api/login` with a relative path — that gap means the bundle is using an
+  absolute API base.
 - Rollback: redeploy the previous Render/Vercel build from their respective dashboards.
 
 ---

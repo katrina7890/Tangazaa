@@ -66,20 +66,21 @@ function Hero() {
         {/* In-page section nav, lifted to sit alongside the global Header's
             sign-in controls (the header's wordmark is hidden on this route). */}
         <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-semibold text-white/85">
-          <a href="#about" className="transition hover:text-white">
-            About us
-          </a>
-          <a href="#how-it-works" className="transition hover:text-white">
-            How it works
-          </a>
           {/* The one nav item that leaves the page — given the signature
-              gradient so the route to the map reads as the primary action. */}
+              gradient so the route to the map reads as the primary action.
+              Swapped ahead of "About us" per request; the gradient stays with it. */}
           <Link
             to="/map"
             className="rounded-full bg-gradient-to-r from-gold to-blush px-5 py-2 text-white shadow-lg shadow-gold/30 transition hover:opacity-90"
           >
             Billboards
           </Link>
+          <a href="#how-it-works" className="transition hover:text-white">
+            How it works
+          </a>
+          <a href="#about" className="transition hover:text-white">
+            About us
+          </a>
         </nav>
 
         <p className="mt-12 text-sm font-semibold uppercase tracking-[0.2em] text-white/75 sm:text-base">

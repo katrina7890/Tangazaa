@@ -15,6 +15,7 @@ use App\Models\Artwork;
 use App\Models\Billboard;
 use App\Models\Booking;
 use App\Models\BookingUpdate;
+use App\Models\ChatMessage;
 use App\Models\Contact;
 use App\Models\LoginAttempt;
 use App\Models\Payment;
@@ -114,10 +115,17 @@ class DatabaseSeeder extends Seeder
         $billboards->random(min(8, $billboards->count()))->each(function (Billboard $billboard) use ($allCustomers) {
             $customer = $allCustomers->random();
 
+            // Spread these across the last week so the admin Overview's 7-day
+            // charts show a real wave rather than one spike on seed day
+            // (booking_activity keys off created_at, revenue_activity off paid_at).
+            $bookedAt = now()->subDays(rand(0, 6))->subHours(rand(0, 23));
+
             $booking = Booking::factory()->create([
                 'billboard_id' => $billboard->id,
                 'customer_id' => $customer->id,
                 'status' => BookingStatus::Confirmed,
+                'created_at' => $bookedAt,
+                'updated_at' => $bookedAt,
             ]);
 
             // A confirmed booking has, by definition, been paid for.
@@ -125,6 +133,7 @@ class DatabaseSeeder extends Seeder
                 'booking_id' => $booking->id,
                 'amount' => $booking->total_price,
                 'email' => $customer->email,
+                'paid_at' => $bookedAt,
             ]);
         });
 
@@ -146,7 +155,7 @@ class DatabaseSeeder extends Seeder
         if ($ownerBoards->isNotEmpty()) {
             // An offline (walk-in) deal, so the sync screen shows both sources.
             $offlineBoard = $ownerBoards->first();
-            Booking::create([
+            $offlineBooking = Booking::create([
                 'billboard_id' => $offlineBoard->id,
                 'contact_id' => $contacts->first()->id,
                 'start_date' => now()->addMonths(4)->startOfDay(),
@@ -241,6 +250,54 @@ class DatabaseSeeder extends Seeder
                 'message' => 'The artwork is locked. Should we go ahead and print + build your billboard?',
                 'created_at' => now()->subDays(2),
                 'updated_at' => now()->subDays(2),
+            ]);
+
+            // A still-pending booking for the demo customer, so the customer
+            // workspace shows the "Complete payment" flow and a payment-pending
+            // badge, and the owner sees an unpaid incoming request.
+            $pendingBooking = Booking::factory()->create([
+                'billboard_id' => $ownerBoards->first()->id,
+                'customer_id' => $customer->id,
+                'status' => BookingStatus::Pending,
+                'start_date' => now()->addDays(21)->startOfDay(),
+                'end_date' => now()->addDays(51)->startOfDay(),
+            ]);
+            Payment::factory()->create([
+                'booking_id' => $pendingBooking->id,
+                'amount' => $pendingBooking->total_price,
+                'email' => $customer->email,
+            ]);
+
+            // Seed a two-way chat on the live campaign, plus an internal note on
+            // the offline deal, so the Chat Centre and the customer's Messages
+            // inbox aren't empty on first login.
+            ChatMessage::create([
+                'booking_id' => $progressBooking->id,
+                'sender_id' => $customer->id,
+                'body' => 'Hi! Excited to get started — is the artwork on track for the start date?',
+                'created_at' => now()->subDays(6),
+                'updated_at' => now()->subDays(6),
+            ]);
+            ChatMessage::create([
+                'booking_id' => $progressBooking->id,
+                'sender_id' => $owner->id,
+                'body' => 'Karibu! First draft lands tomorrow and we install well ahead of your start date.',
+                'created_at' => now()->subDays(6)->addHours(2),
+                'updated_at' => now()->subDays(6)->addHours(2),
+            ]);
+            ChatMessage::create([
+                'booking_id' => $progressBooking->id,
+                'sender_id' => $customer->id,
+                'body' => 'Perfect, thank you!',
+                'created_at' => now()->subDays(5),
+                'updated_at' => now()->subDays(5),
+            ]);
+            ChatMessage::create([
+                'booking_id' => $offlineBooking->id,
+                'sender_id' => $owner->id,
+                'body' => 'Walk-in deal closed with '.$contacts->first()->company.' — deposit received, artwork to follow.',
+                'created_at' => now()->subDay(),
+                'updated_at' => now()->subDay(),
             ]);
         }
 
