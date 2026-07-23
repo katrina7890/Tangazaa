@@ -40,7 +40,9 @@ export default function MapSearchBar({
       }`}
     >
       <div
-        className={`w-full max-w-xl rounded-3xl border border-sand bg-cream/95 p-2.5 shadow-xl backdrop-blur map-dark:border-white/10 map-dark:bg-forest-deep/95 sm:rounded-full sm:p-2 ${
+        // Rounded rectangle at every width, matching the map's side menu
+        // (FilterPanel is rounded-3xl) rather than the pill `sm:rounded-full` gave.
+        className={`w-full max-w-xl rounded-3xl border border-sand bg-cream/95 p-2.5 shadow-xl backdrop-blur map-dark:border-white/10 map-dark:bg-forest-deep/95 sm:p-2 ${
           hidden ? 'pointer-events-none' : 'pointer-events-auto'
         }`}
       >
