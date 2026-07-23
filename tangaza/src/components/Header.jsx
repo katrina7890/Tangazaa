@@ -71,10 +71,25 @@ export default function Header() {
       {/* On the landing page the hero carries the wordmark at display size, so
           the header's own is redundant until the hero scrolls away — then it
           fades into its usual slot. Every other route shows it immediately.
-          The empty span holds the space so justify-between doesn't pull the
-          account controls left. */}
+          While the hero is in view, the in-page section nav lives in this left
+          slot so it sits on one top bar with the sign-in controls; it's replaced
+          by the wordmark once you scroll past the hero. Hidden on small screens,
+          where the same links live in the footer. */}
       {onLanding && !scrolled ? (
-        <span aria-hidden />
+        <nav className="hidden items-center gap-x-6 text-sm font-semibold text-cream/85 md:flex">
+          <Link
+            to="/map"
+            className="rounded-full bg-gradient-to-r from-gold to-blush px-4 py-2 text-white shadow-lg shadow-gold/30 transition hover:opacity-90"
+          >
+            Billboards
+          </Link>
+          <a href="#how-it-works" className="transition hover:text-white">
+            How it works
+          </a>
+          <a href="#about" className="transition hover:text-white">
+            About us
+          </a>
+        </nav>
       ) : (
         <Link
           to="/"
