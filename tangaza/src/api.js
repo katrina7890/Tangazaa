@@ -1,13 +1,19 @@
 function resolveApiBase() {
-  // Explicit override wins (local dev sets REACT_APP_API_URL=http://localhost:8000).
-  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
-  // Otherwise, when served from a real host (e.g. the demo tunnel) the API is
-  // same-origin — Laravel serves this SPA — so use relative paths.
+  // Deployed on a real host (e.g. Vercel): the API is same-origin behind the
+  // Vercel proxy (see vercel.json + the CORS/Sanctum note in render.yaml), so we
+  // MUST use relative paths here. This deliberately wins even if
+  // REACT_APP_API_URL is set, because pointing the SPA at a cross-origin base
+  // (the Render URL) silently breaks Sanctum's cookie auth: the browser stores
+  // the XSRF-TOKEN cookie on the API's domain, which JS on the Vercel domain
+  // can't read via document.cookie, so every mutating request goes out with an
+  // empty token and 419s with a "CSRF token mismatch". Keep REACT_APP_API_URL
+  // UNSET in Vercel too, but this guard means a stray value can't resurrect the bug.
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') return '';
   }
-  return 'http://localhost:8000';
+  // Local dev only: honor an explicit override, else default to the local API.
+  return process.env.REACT_APP_API_URL || 'http://localhost:8000';
 }
 
 const API_URL = resolveApiBase();
