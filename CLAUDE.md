@@ -498,6 +498,12 @@ around the city rather than scattering across Kenya.
   - Purple is dark, so anything on `bg-gold` needs `text-white`, and purple TEXT is unreadable on
     the ink sections — on dark surfaces use `text-coral`; on light surfaces use `text-gold-dark`.
   - The signature gradient is `from-gold to-blush` (buttons, active nav, the wordmark chip).
+  **Browse-map reveal:** `/map` fades up out of the cream page surface via the `.map-reveal` /
+  `.is-revealed` pair in `index.css`, so arriving from the landing page reads as a crossfade. The
+  class is flipped by a **`setTimeout`, deliberately not `requestAnimationFrame`** — rAF is paused
+  in background tabs, and opening `/map` in one would otherwise leave the map stuck at `opacity: 0`
+  until the tab was focused. It must fail visible, never blank. (This replaced a 5s radar-sweep
+  intro, removed 2026-07-22.)
   **`map-dark:` variant** (defined in `index.css`) styles the browse map's floating UI —
   `MapSearchBar` and `FilterPanel` — when the map's own style picker is set to **Dark**. It keys off
   `data-map-theme` on `MapBrowsePage`'s root, **not** the OS colour scheme, because those panels sit
@@ -597,8 +603,30 @@ around the city rather than scattering across Kenya.
     confirming happens in another tab).
   - Shared primitives are in `components/customer/ui.jsx` and `components/customer/BookingCard.jsx`
     (the card is shared by Overview and Campaigns so the two can't drift).
-  The book-and-pay entry point is still on `BillboardDetailPage` ("Book & Pay" →
-  `createBooking` returns the booking + an open `payment` → same `PaymentModal`).
+  The book-and-pay entry point is still on `BillboardDetailPage`
+  (`createBooking` returns the booking + an open `payment` → same `PaymentModal`).
+- **Booking checkout (`/billboards/:id`, rebuilt 2026-07-22)** from the *Tangazaa Booking Checkout
+  Page* mockup: listing on the left (hero + type chip, spec cards with the weekly rate on the
+  signature gradient, About, site details), sticky checkout on the right (calendar → price
+  breakdown → pay-method picker → gradient Confirm & Pay). Two mockup elements were **deliberately
+  not carried over — don't "restore" them**:
+  - **Its 5% service fee.** `CreateBooking` charges exactly days × `price_per_day`, so a fee in the
+    UI would put the checkout total at odds with the payment, the receipt PDF and the contract.
+    The line now reads "No booking fee"; `PaymentChannelTest` pins subtotal == total == amount.
+  - **Its blanket green "Verified" badge.** There's no verification field, so every listing would
+    show it. Replaced with "Listed by ⟨company⟩" from the owner account — the real per-listing fact
+    behind the platform's trust claim. (`BillboardResource` exposes `owner` `whenLoaded`, and the
+    public `show` route eager-loads it.)
+  The mockup's second photo slot became a **Site details** panel (road/lighting/orientation/traffic/
+  visibility/amenities from the ERP fields, hidden when empty) rather than repeating the same
+  placeholder image — real billboard photo uploads still don't exist. `AvailabilityCalendar` already
+  renders its own Selected/Booked legend, so the mockup's separate one was dropped as a duplicate.
+- **Payment channel (2026-07-22):** `App\Enums\PaymentChannel` (`mpesa`/`card`) — M-Pesa is the
+  dominant method in Kenya and Paystack supports both, so the picker writes a real value to
+  `payments.channel` rather than being decorative. Optional `channel` on `POST /bookings` and
+  `POST /bookings/{booking}/pay`, **defaulting to `card`** so existing callers are unaffected.
+  Resuming an unfinished checkout updates the channel on the existing pending payment instead of
+  opening a second transaction. The gateway itself is still simulated.
 - **Dashboards:** `OwnerDashboardPage` (`/owner`, role
   `owner`/`admin`) lists/creates/edits/deletes
   the current user's billboards (`components/owner/BillboardForm.jsx` — includes the **Available

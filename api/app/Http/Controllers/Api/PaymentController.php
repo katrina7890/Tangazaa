@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentChannel;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Http\Resources\PaymentResource;
@@ -53,7 +54,11 @@ class PaymentController extends Controller
         abort_unless($booking->customer_id === $request->user()->id, 403);
         abort_if($booking->status !== BookingStatus::Pending, 422, 'This booking is not awaiting payment.');
 
-        return new PaymentResource($paystack->initialize($booking, $request->user()->email));
+        return new PaymentResource($paystack->initialize(
+            $booking,
+            $request->user()->email,
+            $request->enum('channel', PaymentChannel::class) ?? PaymentChannel::Card,
+        ));
     }
 
     /**

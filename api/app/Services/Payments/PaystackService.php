@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Models\AppNotification;
 use App\Models\Booking;
@@ -26,7 +27,7 @@ class PaystackService
      * Start (or resume) a checkout for a booking. Reuses an open pending payment
      * so repeated "Pay now" clicks don't create duplicate transactions.
      */
-    public function initialize(Booking $booking, string $email): Payment
+    public function initialize(Booking $booking, string $email, PaymentChannel $channel = PaymentChannel::Card): Payment
     {
         $pending = $booking->payments()
             ->where('status', PaymentStatus::Pending)
@@ -34,6 +35,12 @@ class PaystackService
             ->first();
 
         if ($pending) {
+            // Resuming an unfinished checkout: honour a change of mind about
+            // how to pay, without opening a second transaction.
+            if ($pending->channel !== $channel->value) {
+                $pending->update(['channel' => $channel->value]);
+            }
+
             return $pending;
         }
 
@@ -41,7 +48,7 @@ class PaystackService
             'reference' => $this->generateReference(),
             'amount' => $booking->total_price,
             'email' => $email,
-            'channel' => 'card',
+            'channel' => $channel->value,
             'status' => PaymentStatus::Pending,
         ]);
     }

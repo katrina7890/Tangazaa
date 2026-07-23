@@ -90,71 +90,54 @@ body {
 @custom-variant map-dark (&:where([data-map-theme='dark'] *));
 
 /* ---------------------------------------------------------------------------
-   Radar intro (components/map/RadarIntro.jsx) — the scan that plays over the
-   browse map before the inventory is revealed.
+   Sticky-header wordmark — mounts when the landing hero scrolls away, so this
+   is an entrance animation rather than a transition (there's no previous state
+   to transition from).
 --------------------------------------------------------------------------- */
-@keyframes radar-sweep {
-  to {
-    rotate: 360deg;
-  }
-}
-
-/* Rings expanding outward from the centre, behind the sweep. */
-@keyframes radar-pulse {
-  0% {
-    transform: scale(0.25);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0;
-  }
-}
-
-/* Contacts blink on as the beam passes over them. */
-@keyframes radar-ping {
-  0%,
-  100% {
-    opacity: 0.15;
-    transform: scale(0.8);
-  }
-  15% {
-    opacity: 1;
-    transform: scale(1.35);
-  }
-  55% {
-    opacity: 0.45;
-    transform: scale(1);
-  }
-}
-
-@keyframes radar-progress {
+@keyframes header-mark-in {
   from {
-    width: 0%;
+    opacity: 0;
+    transform: translateY(-6px);
   }
   to {
-    width: 100%;
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.radar-sweep {
-  animation: radar-sweep 2s linear infinite;
-}
-.radar-pulse {
-  animation: radar-pulse 2.8s ease-out infinite;
-}
-.radar-ping {
-  animation: radar-ping 2s ease-in-out infinite;
+.header-mark {
+  animation: header-mark-in 320ms ease-out both;
 }
 
-/* A spinning beam is exactly the kind of motion that triggers vestibular
-   discomfort, so honour the OS setting: the intro still renders, but static.
-   RadarIntro also cuts the whole sequence short when this is set. */
 @media (prefers-reduced-motion: reduce) {
-  .radar-sweep,
-  .radar-pulse,
-  .radar-ping {
-    animation: none;
+  .header-mark {
+    animation-name: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Browse-map reveal — the map fades up out of the same warm paper surface the
+   landing page sits on, so arriving at /map reads as a crossfade rather than a
+   page swap. (Replaced an earlier radar-sweep intro.)
+--------------------------------------------------------------------------- */
+.map-reveal {
+  opacity: 0;
+  transform: scale(1.03);
+  transition: opacity 650ms ease, transform 900ms ease;
+}
+
+.map-reveal.is-revealed {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Keep the crossfade — a plain opacity change is fine — but drop the drift,
+   which is the part that reads as motion. */
+@media (prefers-reduced-motion: reduce) {
+  .map-reveal,
+  .map-reveal.is-revealed {
+    transform: none;
+    transition: opacity 200ms ease;
   }
 }
 

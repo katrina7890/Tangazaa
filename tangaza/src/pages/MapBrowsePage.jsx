@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
 import { useNavigate } from 'react-router-dom';
 import FilterPanel from '../components/map/FilterPanel';
 import MapControls from '../components/map/MapControls';
 import MapSearchBar from '../components/map/MapSearchBar';
-import RadarIntro from '../components/map/RadarIntro';
 import { NAIROBI_CENTER, TILE_THEMES } from '../components/map/tileThemes';
 import { fetchBillboards } from '../api';
 import { BILLBOARD_TYPES, billboardTypeLabel } from '../data/billboardTypes';
@@ -26,10 +25,18 @@ export default function MapBrowsePage() {
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [maxWeeklyBudget, setMaxWeeklyBudget] = useState(Infinity);
   const [selectedId, setSelectedId] = useState(null);
-  const [introDone, setIntroDone] = useState(false);
-  // Stable identity: RadarIntro's timers key off this, and a fresh closure each
-  // render would restart them before they ever fire.
-  const handleIntroDone = useCallback(() => setIntroDone(true), []);
+  // Flipped just after mount so the opacity-0 frame commits first and the
+  // reveal actually transitions rather than snapping to the end state.
+  //
+  // Deliberately a timeout, not requestAnimationFrame: rAF is paused in
+  // background tabs, so opening /map in one (cmd-click, restored session) would
+  // leave the map stuck at opacity 0 until the tab was focused. A timer fires
+  // regardless of visibility — this should fail visible, never blank.
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setRevealed(true), 40);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     fetchBillboards()
@@ -87,24 +94,13 @@ export default function MapBrowsePage() {
   }
 
   return (
-    // Drives the `map-dark:` variant on the floating panels — they sit over the
-    // tiles, so they follow the map's style rather than the OS colour scheme.
-    <div className="fixed inset-0" data-map-theme={theme}>
-      {/* The map is mounted (and Leaflet sized) behind the scan, so the reveal
-          is instant rather than a second load.
-
-          Blur/scale are inline rather than Tailwind utilities so the transition
-          names exactly the two properties it animates. `transition-all` on a
-          wrapper this size also animates anything else that happens to change,
-          which is a lot of needless compositing over a live map. */}
-      <div
-        className="h-full w-full"
-        style={{
-          filter: introDone ? 'blur(0px)' : 'blur(12px)',
-          transform: introDone ? 'scale(1)' : 'scale(1.05)',
-          transition: 'filter 1s ease, transform 1s ease',
-        }}
-      >
+    // `data-map-theme` drives the `map-dark:` variant on the floating panels —
+    // they sit over the tiles, so they follow the map's style rather than the
+    // OS colour scheme. `overflow-hidden` contains the reveal's slight scale.
+    <div
+      className={`map-reveal fixed inset-0 overflow-hidden ${revealed ? 'is-revealed' : ''}`}
+      data-map-theme={theme}
+    >
       <MapContainer
         ref={mapRef}
         center={NAIROBI_CENTER}
@@ -183,9 +179,6 @@ export default function MapBrowsePage() {
           );
         })}
       </MapContainer>
-      </div>
-
-      {!introDone && <RadarIntro onDone={handleIntroDone} />}
 
       <MapSearchBar
         query={query}

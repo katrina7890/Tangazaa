@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Booking\CreateBooking;
 use App\Enums\BookingStatus;
 use App\Enums\ClientReaction;
+use App\Enums\PaymentChannel;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\ReactToBookingUpdateRequest;
 use App\Http\Requests\Booking\StoreBookingRequest;
@@ -38,7 +39,11 @@ class BookingController extends Controller
 
         // Open a checkout immediately so the SPA can hand the customer straight
         // to the (simulated) Paystack payment step.
-        $payment = $paystack->initialize($booking, $request->user()->email);
+        $payment = $paystack->initialize(
+            $booking,
+            $request->user()->email,
+            $request->enum('channel', PaymentChannel::class) ?? PaymentChannel::Card,
+        );
 
         return (new BookingResource($booking->load('billboard')))
             ->additional(['payment' => new PaymentResource($payment)])

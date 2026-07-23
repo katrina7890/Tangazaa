@@ -19,7 +19,9 @@ beforeEach(() => {
 
 test('renders the landing page by default', async () => {
   render(<App />);
-  expect(screen.getByRole('link', { name: 'TANGAZAA' })).toBeInTheDocument();
+  // The header's wordmark is deliberately hidden here — the hero carries it at
+  // display size — so the hero nav is what identifies the page chrome.
+  expect(screen.getByRole('link', { name: 'Billboards' })).toHaveAttribute('href', '/map');
   expect(await screen.findByText(/a new way to book outdoor advertising/i)).toBeInTheDocument();
   expect(screen.getByText(/real boards\. real data\./i)).toBeInTheDocument();
   // The tagline appears twice by design — hero eyebrow and footer strapline.

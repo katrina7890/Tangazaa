@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Booking;
 
+use App\Enums\PaymentChannel;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreBookingRequest extends FormRequest
 {
@@ -26,6 +28,9 @@ class StoreBookingRequest extends FormRequest
             'billboard_id' => ['required', 'integer', 'exists:billboards,id'],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            // Optional: how the customer wants to pay. Defaults to card so
+            // existing callers keep working unchanged.
+            'channel' => ['sometimes', Rule::enum(PaymentChannel::class)],
         ];
     }
 }

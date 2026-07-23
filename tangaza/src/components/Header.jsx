@@ -7,6 +7,7 @@ export default function Header() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const onLanding = location.pathname === '/';
   // These routes have a dark forest backdrop at the top, so the wordmark needs to be light there.
   // `/admin` is deliberately absent: the console's floating-panel remodel opens
   // on a light sand canvas, so the wordmark must stay dark there.
@@ -67,14 +68,26 @@ export default function Header() {
         scrolled ? 'bg-forest/95 shadow-lg shadow-black/10 backdrop-blur' : 'bg-transparent'
       }`}
     >
-      <Link
-        to="/"
-        className={`font-display text-2xl font-bold tracking-[0.08em] transition-colors ${
-          lightWordmark ? 'text-cream' : 'text-forest'
-        }`}
-      >
-        TANGAZAA
-      </Link>
+      {/* On the landing page the hero carries the wordmark at display size, so
+          the header's own is redundant until the hero scrolls away — then it
+          fades into its usual slot. Every other route shows it immediately.
+          The empty span holds the space so justify-between doesn't pull the
+          account controls left. */}
+      {onLanding && !scrolled ? (
+        <span aria-hidden />
+      ) : (
+        <Link
+          to="/"
+          // On the landing page this links to the page you're already on, so
+          // give it something to do rather than leaving a dead click.
+          onClick={onLanding ? () => window.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
+          className={`font-display text-2xl font-bold tracking-[0.08em] transition-colors ${
+            onLanding ? 'header-mark ' : ''
+          }${lightWordmark ? 'text-cream' : 'text-forest'}`}
+        >
+          TANGAZAA
+        </Link>
+      )}
 
       {!loading && user ? (
         <div className="relative" ref={menuRef}>
